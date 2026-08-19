@@ -14,8 +14,8 @@ passcode — lives in the browser's `localStorage` on the tablet, under the key
 ## Architecture
 
 ```
-Nicola @ claude.ai/code  ──►  GitHub (private repo)  ──►  GitHub Pages
-   "make the stars bigger"      she merges the PR         live in ~1–2 min
+Nicola @ claude.ai/code  ──►  GitHub (public repo)  ──►  GitHub Pages
+   "make the stars bigger"      she merges the PR        live in ~1–2 min
 ```
 
 No CI, no deploy scripts, no servers, no secrets anywhere. Merging to `main`
@@ -43,25 +43,30 @@ worth checking if the app is ever handed to someone new.
 The in-app passcode is client-side only and is not security — it stops a
 6-year-old changing their chore list, nothing more.
 
+## Already done
+
+- Repo created, pushed, and public. Commits are authored as
+  `Greg Matthew Crossley <greg@crossley.to>`, but **unsigned** — the 1Password
+  SSH agent wasn't running at the time. Re-enable signing however you normally
+  do if you want signed history going forward.
+- Pages enabled and verified live: `index.html`, the manifest and all four
+  icons return 200 at the project subpath, and the served HTML is
+  byte-identical to the committed file.
+
+### The deploy delay, in detail
+
+Pages sends `cache-control: max-age=600`. Combined with a minute or two to
+publish, a change can take up to about **15 minutes** to appear on a device
+that already has the page open.
+
+This is the single most likely source of "my change didn't work". It's covered
+in Nicola's guide with instructions to force-close the home-screen app. If she
+reports a change not working, ask how long ago she merged it before looking
+for a real bug.
+
 ## Remaining setup
 
-### 1. ~~Create the repo and push~~ — done
-
-Commits are authored as `Greg Matthew Crossley <greg@crossley.to>`. Signing is
-disabled on them, because the 1Password SSH agent wasn't running at the time.
-Re-enable it however you normally do if you want signed history going forward.
-
-### 2. ~~Turn on GitHub Pages~~ — done
-
-Verified live: `index.html`, the manifest and all four icons return 200 at the
-project subpath, and the served HTML is byte-identical to the committed file.
-
-Note the Pages cache header: `cache-control: max-age=600`. A browser that has
-already loaded the page will keep showing its copy for up to 10 minutes after
-a deploy. This is the single most likely source of "my change didn't work" —
-it's covered in Nicola's guide.
-
-### 3. Give Nicola access to Claude Code on the web
+### 1. Give Nicola access to Claude Code on the web
 
 She needs a Claude **Pro, Max or Team** plan — Claude Code on the web isn't
 available on the free tier.
@@ -77,7 +82,7 @@ Have her do one throwaway change end-to-end with you watching — something
 obvious like changing a background colour — so the merge step isn't new on the
 day she actually wants something.
 
-### 4. Install it on the tablet
+### 2. Install it on the tablet
 
 Open the Pages URL in Safari, then **Share → Add to Home Screen**.
 
@@ -87,7 +92,7 @@ ordinary websites after about seven days of non-use, which would wipe the
 chore configuration over a holiday. Home-screen installation exempts the site
 from that eviction.
 
-### 5. Change the passcode
+### 3. Change the passcode
 
 Open the app, gear button, passcode `1234`, and change it. Then set up the
 real kids and chores through the gear button — **not** in the code, so their

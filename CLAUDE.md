@@ -75,6 +75,7 @@ That is intentional — it's a fresh list each day.
 | `icons/` | Home-screen icons. Regenerate with `tools/make_icons.py` if the look changes. |
 | `.nojekyll` | Tells GitHub Pages to serve the files as-is. Don't delete. |
 | `HOW-TO-EDIT-THE-APP.md` | Nicola's plain-English guide. |
+| `README.md` | Greg's setup and operations notes. |
 
 ## How it goes live
 

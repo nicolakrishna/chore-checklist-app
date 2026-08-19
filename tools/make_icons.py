@@ -1,53 +1,76 @@
-from PIL import Image, ImageDraw
+"""Regenerate the home-screen icons in icons/.
+
+Run from anywhere:  python3 tools/make_icons.py   (requires Pillow)
+
+The icon is a white disc with a green tick on the app's sky-blue gradient.
+It's drawn at 1024px and downsampled, so the curves stay smooth at 32px.
+Colours are kept in step with the CSS custom properties in index.html.
+"""
+
 import os
 
-OUT = "/Users/gregmatthewcrossley/Developer/chore-checklist-app/icons"
-os.makedirs(OUT, exist_ok=True)
+from PIL import Image, ImageDraw
 
-S = 1024  # supersampled master
+ICONS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, "icons")
+
+MASTER = 1024  # drawn large, then downsampled for clean antialiasing
+
+SKY_TOP = (0x7C, 0xC9, 0xF0)
+SKY_BOTTOM = (0x4F, 0xA6, 0xE8)
+LEAF = (0x3F, 0xBE, 0x73)  # --leaf
+WHITE = (255, 255, 255)
+
+DISC_RADIUS = 300
+TICK = [(390, 520), (475, 612), (648, 415)]
+TICK_WIDTH = 78
+
+SIZES = (
+    (192, "icon-192.png"),
+    (512, "icon-512.png"),
+    (180, "apple-touch-icon.png"),
+    (32, "favicon-32.png"),
+)
 
 
 def lerp(a, b, t):
     return tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(3))
 
 
-def master(bleed_bg):
-    """bleed_bg=True -> full-bleed art (maskable). False -> same art, used for all."""
-    img = Image.new("RGB", (S, S), (255, 255, 255))
+def draw_master():
+    img = Image.new("RGB", (MASTER, MASTER), WHITE)
     d = ImageDraw.Draw(img)
 
-    # Sky gradient, matching the app's --sky palette but saturated enough
-    # to stay legible as a small home-screen tile.
-    top, bot = (0x7C, 0xC9, 0xF0), (0x4F, 0xA6, 0xE8)
-    for y in range(S):
-        d.line([(0, y), (S, y)], fill=lerp(top, bot, y / (S - 1)))
+    # Sky gradient. Saturated a little beyond the app's --sky-top/--sky-bot so
+    # the tile stays legible against a light home-screen wallpaper.
+    for y in range(MASTER):
+        d.line([(0, y), (MASTER, y)], fill=lerp(SKY_TOP, SKY_BOTTOM, y / (MASTER - 1)))
 
-    # White "card" disc, the checkbox the tick sits in.
-    r = 300
-    c = S // 2
-    d.ellipse([c - r, c - r, c + r, c + r], fill=(255, 255, 255))
-
-    # Green tick, --leaf #3FBE73
-    d.line(
-        [(390, 520), (475, 612), (648, 415)],
-        fill=(0x3F, 0xBE, 0x73),
-        width=78,
-        joint="curve",
+    # White disc: the checkbox the tick sits in.
+    c = MASTER // 2
+    d.ellipse(
+        [c - DISC_RADIUS, c - DISC_RADIUS, c + DISC_RADIUS, c + DISC_RADIUS],
+        fill=WHITE,
     )
-    # Round the stroke ends by hand; PIL only rounds the joint.
-    for px, py in ((390, 520), (648, 415)):
-        d.ellipse([px - 39, py - 39, px + 39, py + 39], fill=(0x3F, 0xBE, 0x73))
+
+    d.line(TICK, fill=LEAF, width=TICK_WIDTH, joint="curve")
+
+    # PIL rounds the joint between segments but leaves the two free ends square,
+    # so cap them by hand.
+    cap = TICK_WIDTH // 2
+    for x, y in (TICK[0], TICK[-1]):
+        d.ellipse([x - cap, y - cap, x + cap, y + cap], fill=LEAF)
 
     return img
 
 
-art = master(True)
+def main():
+    os.makedirs(ICONS_DIR, exist_ok=True)
+    art = draw_master()
+    for size, name in SIZES:
+        path = os.path.join(ICONS_DIR, name)
+        art.resize((size, size), Image.LANCZOS).save(path)
+        print(f"wrote {name} ({size}x{size})")
 
-for size, name in (
-    (192, "icon-192.png"),
-    (512, "icon-512.png"),
-    (180, "apple-touch-icon.png"),
-    (32, "favicon-32.png"),
-):
-    art.resize((size, size), Image.LANCZOS).save(os.path.join(OUT, name))
-    print("wrote", name, size)
+
+if __name__ == "__main__":
+    main()

@@ -39,6 +39,13 @@ takes the app off the air.
 5. **Keep `migrateKid()` working.** It upgrades older saved data. If you change
    the shape of a kid or a chore, extend that function to convert old saved
    data to the new shape, or real data will be lost on next open.
+6. **Never hard-code the family's real details.** `DEFAULT_KIDS` and
+   `DEFAULT_PASSCODE` must stay generic placeholders. The repository is
+   private, but **the published site is public to anyone with the URL**, and
+   `index.html` is served verbatim — so a real child's name written into
+   `DEFAULT_KIDS` is a real child's name published on the open internet. If
+   asked to "add my daughter Ava", don't edit the code: explain that the gear
+   button does this, and that it keeps her name off the public page.
 
 ## How the saved data actually works
 
@@ -64,15 +71,27 @@ That is intentional — it's a fresh list each day.
 | `index.html` | The entire app. This is almost always the only file to edit. |
 | `manifest.webmanifest` | Lets the tablet install it as a fullscreen home-screen app. |
 | `icons/` | Home-screen icons. Regenerate with `tools/make_icons.py` if the look changes. |
-| `deploy/` | Server-side deployment scripts. Not part of the app. Leave alone. |
+| `.nojekyll` | Tells GitHub Pages to serve the files as-is. Don't delete. |
 | `HOW-TO-EDIT-THE-APP.md` | Nicola's plain-English guide. |
 
 ## How it goes live
 
-Merging to the `main` branch is the deploy. A timer on our server pulls from
-GitHub every 60 seconds and copies the files into place. There is no CI, no
-GitHub Actions, no build. Please don't add any — the pull-based deploy is
-intentional, so that there are no secrets or keys stored in GitHub.
+Hosted on **GitHub Pages**, serving the `main` branch directly. Merging to
+`main` *is* the deploy — GitHub publishes it within a minute or two. There is
+no CI, no build, and no deploy script.
+
+Two consequences worth remembering:
+
+- **Don't add a build step or a GitHub Actions workflow.** Pages is configured
+  to serve the branch contents as they are. Anything that expects to be
+  compiled will simply not be served.
+- **The site is served from a subpath** (`/chore-checklist-app/`), not a domain
+  root. All asset paths in `index.html` and `manifest.webmanifest` are
+  therefore **relative** (`icons/…`, not `/icons/…`). Keep them relative — a
+  leading slash will 404 in production while still working locally, which is
+  the worst kind of bug to catch.
+- Pages sits behind a CDN, so a change can take a few minutes to appear in a
+  browser that already has the old copy. That's expected; it isn't a failure.
 
 ## Testing your change
 

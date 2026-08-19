@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Chore Checklist</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+
+<!-- Home-screen app setup. Lets the tablet install this as a fullscreen app
+     with no browser bars — and, importantly, stops iOS deleting the saved
+     chores after a week of not being opened. Don't remove these. -->
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+<meta name="theme-color" content="#BFE7FF">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Chores">
+<style>
+  /* ============================================================
+     Starting kids / chores / passcode live in the <script> near
+     the bottom, look for "DEFAULT CONFIG". Once the app loads you
+     can also edit everything from the gear button (bottom right)
+     — no code editing required after that.
+     ============================================================ */
+
+  :root{
+    --sky-top:#BFE7FF;
+    --sky-bot:#EAF6FF;
+    --sun:#FFC93C;
+    --coral:#FF6B6B;
+    --leaf:#3FBE73;
+    --grape:#9B7EDE;
+    --ink:#1B2A4A;
+    --ink-soft:#5A6B8C;
+    --card:#FFFFFF;
+    --card-done:#F0FBF4;
+    --radius:26px;
+  }
+
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family:'Nunito', system-ui, -apple-system, sans-serif;
+    background:linear-gradient(180deg,var(--sky-top) 0%, var(--sky-bot) 45%);
+    color:var(--ink);
+    min-height:100vh;
+    overflow-x:hidden;
+    display:flex;
+    flex-direction:column;
+  }
+  h1,h2,.display{ font-family:'Baloo 2', system-ui, sans-serif; }
+
+  header{ padding:22px 20px 10px; text-align:center; position:relative; z-index:2; }
+  .app-title{ font-size:clamp(22px,4vw,32px); font-weight:800; margin:0 0 4px; letter-spacing:.5px; }
+  .app-date{ color:var(--ink-soft); font-weight:700; font-size:15px; margin:0; }
+
+  .kid-row{
+    display:flex; justify-content:center; gap:14px; flex-wrap:wrap;
+    padding:18px 16px 6px; position:relative; z-index:2;
+  }
+  .kid-btn{
+    border:none; background:var(--card); border-radius:22px;
+    padding:10px 18px 10px 10px; display:flex; align-items:center; gap:10px;
+    cursor:pointer; box-shadow:0 4px 0 rgba(27,42,74,.08);
+    transition:transform .15s ease, box-shadow .15s ease;
+    font-family:'Baloo 2', sans-serif; font-weight:700; font-size:17px; color:var(--ink-soft);
+  }
+  .kid-btn .avatar{
+    width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-size:22px; background:var(--sky-top);
+  }
+  .kid-btn.active{ color:#fff; transform:translateY(-2px); box-shadow:0 6px 0 rgba(27,42,74,.15); }
+  .kid-btn.active .avatar{ background:rgba(255,255,255,.35); }
+  .kid-btn:active{ transform:translateY(1px); box-shadow:0 2px 0 rgba(27,42,74,.1); }
+
+  /* Weekday / weekend toggle */
+  .day-toggle-wrap{ display:flex; justify-content:center; padding:14px 16px 2px; position:relative; z-index:2; }
+  .day-toggle{
+    display:flex; background:rgba(255,255,255,.75); border-radius:18px; padding:5px;
+    box-shadow:inset 0 2px 4px rgba(27,42,74,.06);
+  }
+  .day-toggle button{
+    border:none; background:transparent; padding:9px 20px; border-radius:14px;
+    font-family:'Baloo 2', sans-serif; font-weight:700; font-size:15px; color:var(--ink-soft);
+    cursor:pointer; display:flex; align-items:center; gap:6px;
+    transition:background .2s ease, color .2s ease;
+  }
+  .day-toggle button.active{ background:var(--grape); color:#fff; box-shadow:0 3px 0 rgba(27,42,74,.12); }
+  .day-toggle .auto-note{
+    text-align:center; font-size:11px; color:var(--ink-soft); opacity:.65; font-weight:700; margin-top:6px;
+  }
+
+  .progress-wrap{ max-width:640px; margin:8px auto 0; padding:0 22px; position:relative; z-index:2; }
+  .progress-label{ display:flex; justify-content:space-between; align-items:baseline; font-weight:800; font-size:15px; color:var(--ink-soft); margin-bottom:6px; }
+  .progress-label span.big{ color:var(--ink); font-size:16px; }
+  .progress-track{ height:16px; background:rgba(255,255,255,.7); border-radius:20px; overflow:hidden; box-shadow:inset 0 2px 4px rgba(27,42,74,.08); }
+  .progress-fill{ height:100%; border-radius:20px; background:linear-gradient(90deg,var(--leaf),#7BE0A6); width:0%; transition:width .5s cubic-bezier(.34,1.56,.64,1); }
+
+  main{ flex:1; max-width:640px; width:100%; margin:0 auto; padding:20px 18px 90px; position:relative; z-index:2; }
+  .chore-list{ display:flex; flex-direction:column; gap:14px; }
+  .chore-card{
+    background:var(--card); border-radius:var(--radius); padding:16px 18px;
+    display:flex; align-items:center; gap:16px; min-height:84px;
+    box-shadow:0 4px 0 rgba(27,42,74,.06), 0 8px 20px rgba(27,42,74,.05);
+    cursor:pointer; border:none; width:100%; text-align:left; font-family:inherit;
+    position:relative; overflow:hidden;
+    transition:transform .15s ease, box-shadow .15s ease, background .3s ease;
+  }
+  .chore-card:active{ transform:scale(.97); }
+  .chore-card .icon{
+    font-size:34px; width:52px; height:52px; display:flex; align-items:center; justify-content:center;
+    background:var(--sky-bot); border-radius:16px; flex-shrink:0;
+    transition:background .3s ease, transform .3s ease;
+  }
+  .chore-card .label{ flex:1; font-weight:800; font-size:19px; font-family:'Baloo 2', sans-serif; color:var(--ink); transition:color .3s ease; }
+  .chore-card .check{
+    width:38px; height:38px; border-radius:50%; border:3px solid #DCE6F5; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:20px; color:transparent;
+    transition:all .25s cubic-bezier(.34,1.56,.64,1);
+  }
+  .chore-card.done{ background:var(--card-done); }
+  .chore-card.done .icon{ background:#DFF6E7; transform:scale(1.05) rotate(-4deg); }
+  .chore-card.done .label{ color:var(--ink-soft); text-decoration:line-through; text-decoration-color:var(--leaf); text-decoration-thickness:3px; }
+  .chore-card.done .check{ background:var(--leaf); border-color:var(--leaf); color:#fff; transform:scale(1.1); }
+  .chore-card.pop{ animation:pop .4s ease; }
+  @keyframes pop{ 0%{transform:scale(1);} 35%{transform:scale(1.05) rotate(-1deg);} 60%{transform:scale(.98) rotate(1deg);} 100%{transform:scale(1);} }
+
+  .empty-state{ text-align:center; padding:40px 20px; color:var(--ink-soft); font-weight:700; }
+
+  .finale{ display:none; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:40px 20px 20px; animation:fadein .5s ease; }
+  .finale.show{ display:flex; }
+  @keyframes fadein{ from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+  .finale .trophy{ font-size:80px; margin-bottom:6px; animation:bounce 1.4s ease infinite; }
+  @keyframes bounce{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-14px);} }
+  .finale h2{ font-size:clamp(24px,5vw,34px); margin:0 0 8px; color:var(--ink); }
+  .finale p{ color:var(--ink-soft); font-weight:700; font-size:16px; margin:0; }
+
+  canvas#fx{ position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:50; }
+
+  /* ---------- gear / parent access ---------- */
+  .gear-btn{
+    position:fixed; right:16px; bottom:16px; z-index:60;
+    width:46px; height:46px; border-radius:50%; border:none;
+    background:rgba(27,42,74,.14); color:var(--ink);
+    font-size:20px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; transition:background .2s ease, opacity .2s ease;
+    opacity:.6;
+  }
+  .gear-btn:active{ opacity:1; background:rgba(27,42,74,.25); }
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(20,30,50,.55);
+    display:none; align-items:center; justify-content:center; z-index:100; padding:20px;
+  }
+  .overlay.show{ display:flex; }
+  .modal{
+    background:#fff; border-radius:24px; padding:26px 22px; width:100%;
+    box-shadow:0 20px 50px rgba(20,30,50,.3);
+    max-height:88vh; overflow-y:auto;
+  }
+  .modal-pin{ max-width:320px; text-align:center; }
+  .modal-edit{ max-width:560px; }
+
+  .modal h3{ margin:0 0 6px; font-size:22px; }
+  .modal p.sub{ color:var(--ink-soft); font-weight:700; font-size:14px; margin:0 0 18px; }
+
+  .pin-dots{ display:flex; justify-content:center; gap:14px; margin:10px 0 22px; }
+  .pin-dots .dot{ width:16px; height:16px; border-radius:50%; border:2px solid #DCE6F5; background:transparent; transition:background .15s ease, border-color .15s ease; }
+  .pin-dots .dot.filled{ background:var(--ink); border-color:var(--ink); }
+  .pin-dots.error .dot{ border-color:var(--coral); }
+  .pin-pad{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
+  .pin-pad button{
+    font-family:'Baloo 2', sans-serif; font-size:22px; font-weight:700;
+    padding:16px 0; border:none; border-radius:16px; background:var(--sky-bot); color:var(--ink);
+    cursor:pointer;
+  }
+  .pin-pad button:active{ background:var(--sky-top); }
+  .pin-pad button.wide{ font-size:15px; background:transparent; color:var(--ink-soft); }
+
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-weight:800; font-size:13px; color:var(--ink-soft); margin-bottom:5px; }
+  .field input[type=text], .field input[type=tel]{
+    width:100%; padding:10px 12px; border-radius:12px; border:2px solid #E3EBF7;
+    font-family:'Nunito', sans-serif; font-size:15px; font-weight:700; color:var(--ink);
+  }
+  .field input:focus{ outline:none; border-color:var(--grape); }
+
+  .kid-edit-card{ border:2px solid #EEF3FB; border-radius:18px; padding:16px; margin-bottom:16px; }
+  .kid-edit-head{ display:flex; gap:10px; align-items:flex-end; margin-bottom:10px; }
+  .kid-edit-head .field{ margin-bottom:0; }
+  .emoji-field{ width:70px; }
+  .name-field{ flex:1; }
+  .color-swatches{ display:flex; gap:8px; margin-top:6px; }
+  .swatch{ width:26px; height:26px; border-radius:50%; border:3px solid transparent; cursor:pointer; }
+  .swatch.selected{ border-color:var(--ink); }
+
+  .chore-group-label{
+    font-family:'Baloo 2', sans-serif; font-weight:700; font-size:14px; color:var(--ink);
+    margin:16px 0 8px; display:flex; align-items:center; gap:6px;
+  }
+  .chore-group-label.weekend{ color:var(--grape); }
+  .chore-rows{ display:flex; flex-direction:column; gap:8px; }
+  .chore-edit-row{ display:flex; align-items:center; gap:8px; background:#fff; }
+  .chore-edit-row input.icon-input{ width:48px; text-align:center; }
+  .chore-edit-row input.label-input{ flex:1; }
+  .chore-edit-row.dragging{
+    z-index:80; box-shadow:0 10px 24px rgba(27,42,74,.22); border-radius:14px; opacity:.97;
+  }
+  .drag-handle{
+    cursor:grab; touch-action:none; flex-shrink:0; font-size:19px; color:var(--ink-soft);
+    padding:6px 4px; line-height:1; opacity:.6;
+  }
+  .drag-handle:active{ cursor:grabbing; opacity:1; }
+  .icon-btn{
+    border:none; background:#FDEDED; color:var(--coral); width:34px; height:34px; border-radius:10px;
+    font-size:16px; font-weight:800; cursor:pointer; flex-shrink:0;
+  }
+  .add-chore-btn, .add-kid-btn{
+    border:2px dashed #D9E3F5; background:transparent; color:var(--ink-soft);
+    padding:9px 14px; border-radius:12px; font-weight:800; cursor:pointer; font-size:14px; width:100%;
+  }
+  .copy-btn{
+    border:none; background:#F1EBFC; color:var(--grape); padding:7px 12px; border-radius:10px;
+    font-weight:800; cursor:pointer; font-size:12px; margin-bottom:8px;
+  }
+  .remove-kid-btn{ background:none; border:none; color:var(--coral); font-weight:800; font-size:13px; cursor:pointer; margin-top:10px; }
+
+  .save-status{ margin-top:16px; padding:11px 14px; border-radius:12px; font-weight:700; font-size:13px; line-height:1.45; }
+  .save-status.hidden{ display:none; }
+  .save-status.success{ background:#E6F9EE; color:#1E7A46; }
+  .save-status.warning{ background:#FFF4E1; color:#9A5B00; }
+
+  .modal-actions{ display:flex; gap:10px; margin-top:20px; }
+  .btn{ flex:1; padding:13px 0; border-radius:14px; font-family:'Baloo 2', sans-serif; font-weight:700; font-size:16px; border:none; cursor:pointer; }
+  .btn-primary{ background:var(--leaf); color:#fff; }
+  .btn-secondary{ background:#EEF3FB; color:var(--ink-soft); }
+
+  footer{ text-align:center; padding:6px 10px 14px; position:relative; z-index:2; }
+  .edit-hint{ font-size:12px; color:var(--ink-soft); opacity:.55; font-weight:700; }
+</style>
+</head>
+<body>
+
+<canvas id="fx"></canvas>
+
+<header>
+  <p class="app-title display">✨ Today's Chores ✨</p>
+  <p class="app-date" id="dateLabel"></p>
+</header>
+
+<div class="kid-row" id="kidRow"></div>
+
+<div class="day-toggle-wrap">
+  <div>
+    <div class="day-toggle" id="dayToggle">
+      <button data-mode="weekday" id="weekdayBtn">🏫 Weekday</button>
+      <button data-mode="weekend" id="weekendBtn">🎈 Weekend</button>
+    </div>
+    <p class="auto-note" id="autoNote"></p>
+  </div>
+</div>
+
+<div class="progress-wrap">
+  <div class="progress-label">
+    <span>Progress</span>
+    <span class="big" id="progressText">0 / 0</span>
+  </div>
+  <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+</div>
+
+<main>
+  <div class="chore-list" id="choreList"></div>
+  <div class="finale" id="finale">
+    <div class="trophy">🏆</div>
+    <h2 class="display" id="finaleTitle">All done!</h2>
+    <p id="finaleSub">Great job today — see you tomorrow!</p>
+  </div>
+</main>
+
+<footer><p class="edit-hint">Tap a chore to check it off · tap again to undo</p></footer>
+
+<button class="gear-btn" id="gearBtn" aria-label="Parent settings">⚙️</button>
+
+<!-- PIN overlay -->
+<div class="overlay" id="pinOverlay">
+  <div class="modal modal-pin">
+    <h3 class="display">Parent access</h3>
+    <p class="sub">Enter the passcode to edit chores</p>
+    <div class="pin-dots" id="pinDots">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+    </div>
+    <div class="pin-pad" id="pinPad">
+      <button data-d="1">1</button><button data-d="2">2</button><button data-d="3">3</button>
+      <button data-d="4">4</button><button data-d="5">5</button><button data-d="6">6</button>
+      <button data-d="7">7</button><button data-d="8">8</button><button data-d="9">9</button>
+      <button class="wide" id="pinCancel">Cancel</button><button data-d="0">0</button><button class="wide" id="pinBack">⌫</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit overlay -->
+<div class="overlay" id="editOverlay">
+  <div class="modal modal-edit">
+    <h3 class="display">Edit chores</h3>
+    <p class="sub">Set different chores for weekdays and weekends</p>
+    <div id="kidEditList"></div>
+    <button class="add-kid-btn" id="addKidBtn">+ Add a kid</button>
+
+    <div class="field" style="margin-top:20px;">
+      <label>Parent passcode (4 digits)</label>
+      <input type="tel" maxlength="4" id="passcodeInput">
+    </div>
+
+    <div class="save-status hidden" id="saveStatus"></div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="editCancel">Cancel</button>
+      <button class="btn btn-primary" id="editSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   DEFAULT CONFIG — only used the very first time the page opens
+   on a device. After that, edits made through the gear button are
+   saved and take over. Change the starting passcode here if you
+   like (default is 1234). Each kid has a separate "weekday" and
+   "weekend" chore list.
+   ============================================================ */
+const DEFAULT_KIDS = [
+  {
+    id: 'kid1', name: 'Mia', emoji: '🦄', color: '#FF6B6B',
+    weekday: [
+      { icon: '🛏️', label: 'Make your bed' },
+      { icon: '🪥', label: 'Brush your teeth' },
+      { icon: '🐶', label: 'Feed the dog' },
+      { icon: '🎒', label: 'Pack your school bag' },
+    ],
+    weekend: [
+      { icon: '🛏️', label: 'Make your bed' },
+      { icon: '🪥', label: 'Brush your teeth' },
+      { icon: '🧸', label: 'Tidy your room' },
+      { icon: '🧺', label: 'Help with laundry' },
+    ]
+  },
+  {
+    id: 'kid2', name: 'Leo', emoji: '🐯', color: '#4ECB71',
+    weekday: [
+      { icon: '🛏️', label: 'Make your bed' },
+      { icon: '🪥', label: 'Brush your teeth' },
+      { icon: '👕', label: 'Put clothes in hamper' },
+      { icon: '📚', label: 'Read for 10 minutes' },
+    ],
+    weekend: [
+      { icon: '🛏️', label: 'Make your bed' },
+      { icon: '🪥', label: 'Brush your teeth' },
+      { icon: '🍽️', label: 'Help set the table' },
+      { icon: '🌱', label: 'Water the plants' },
+    ]
+  },
+];
+const DEFAULT_PASSCODE = '1234';
+/* ============================================================ */
+
+const STORAGE_KEY = 'choreAppConfigV2';
+const SWATCHES = ['#FF6B6B','#FFC93C','#4ECB71','#9B7EDE','#4FB6E8','#FF9FE5'];
+
+function migrateKid(kid){
+  // supports older saved configs that only had a single "chores" list
+  if (!kid.weekday && !kid.weekend && Array.isArray(kid.chores)){
+    kid.weekday = JSON.parse(JSON.stringify(kid.chores));
+    kid.weekend = JSON.parse(JSON.stringify(kid.chores));
+  }
+  if (!Array.isArray(kid.weekday)) kid.weekday = [];
+  if (!Array.isArray(kid.weekend)) kid.weekend = [];
+  delete kid.chores;
+  return kid;
+}
+
+function loadConfig(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('choreAppConfigV1');
+    if (raw){
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.kids) && parsed.kids.length){
+        parsed.kids = parsed.kids.map(migrateKid);
+        return parsed;
+      }
+    }
+  }catch(e){ /* fall through to defaults */ }
+  return { kids: JSON.parse(JSON.stringify(DEFAULT_KIDS)), passcode: DEFAULT_PASSCODE };
+}
+function saveConfig(cfg){
+  try{
+    const payload = JSON.stringify(cfg);
+    localStorage.setItem(STORAGE_KEY, payload);
+    // verify it actually landed — some sandboxed/preview contexts silently no-op
+    return localStorage.getItem(STORAGE_KEY) === payload;
+  }catch(e){
+    return false;
+  }
+}
+
+let CONFIG = loadConfig();
+let KIDS = CONFIG.kids;
+let PASSCODE = CONFIG.passcode || DEFAULT_PASSCODE;
+
+function todayIsWeekend(){
+  const d = new Date().getDay(); // 0 = Sunday, 6 = Saturday
+  return d === 0 || d === 6;
+}
+let autoMode = todayIsWeekend() ? 'weekend' : 'weekday';
+let viewMode = autoMode; // can be overridden by tapping the toggle, for this session only
+
+let activeKidId = KIDS[0] ? KIDS[0].id : null;
+let done = {};
+function resetDoneState(){
+  done = {};
+  KIDS.forEach(k => { done[k.id] = { weekday: new Set(), weekend: new Set() }; });
+}
+resetDoneState();
+
+const kidRow = document.getElementById('kidRow');
+const choreList = document.getElementById('choreList');
+const finale = document.getElementById('finale');
+const progressFill = document.getElementById('progressFill');
+const progressText = document.getElementById('progressText');
+const dateLabel = document.getElementById('dateLabel');
+const weekdayBtn = document.getElementById('weekdayBtn');
+const weekendBtn = document.getElementById('weekendBtn');
+const autoNote = document.getElementById('autoNote');
+
+dateLabel.textContent = new Date().toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' });
+
+function activeKid(){ return KIDS.find(k => k.id === activeKidId) || KIDS[0]; }
+function currentChores(kid){ return (kid[viewMode] || []); }
+
+function renderDayToggle(){
+  weekdayBtn.classList.toggle('active', viewMode === 'weekday');
+  weekendBtn.classList.toggle('active', viewMode === 'weekend');
+  autoNote.textContent = viewMode === autoMode
+    ? "Today's usual list"
+    : `Switched from today's usual "${autoMode}" list`;
+}
+weekdayBtn.addEventListener('click', () => { viewMode = 'weekday'; renderAll(); });
+weekendBtn.addEventListener('click', () => { viewMode = 'weekend'; renderAll(); });
+
+function renderKidRow(){
+  kidRow.innerHTML = '';
+  KIDS.forEach(k => {
+    const btn = document.createElement('button');
+    btn.className = 'kid-btn' + (k.id === activeKidId ? ' active' : '');
+    if (k.id === activeKidId) btn.style.background = k.color;
+    btn.innerHTML = `<span class="avatar">${k.emoji}</span>${k.name}`;
+    btn.addEventListener('click', () => { activeKidId = k.id; renderAll(); });
+    kidRow.appendChild(btn);
+  });
+}
+
+function renderChores(justCompletedIndex){
+  renderDayToggle();
+  const kid = activeKid();
+  if (!kid){
+    choreList.innerHTML = '<div class="empty-state">No kids set up yet — tap the gear icon to add one.</div>';
+    finale.classList.remove('show');
+    progressText.textContent = '0 / 0';
+    progressFill.style.width = '0%';
+    return;
+  }
+  const chores = currentChores(kid);
+  const doneSet = done[kid.id][viewMode];
+  choreList.innerHTML = '';
+
+  const allDone = chores.length > 0 && doneSet.size === chores.length;
+
+  if (allDone){
+    choreList.style.display = 'none';
+    finale.classList.add('show');
+    const dayWord = viewMode === 'weekend' ? 'weekend' : 'day';
+    document.getElementById('finaleTitle').textContent = `All done, ${kid.name}! 🎉`;
+    document.getElementById('finaleSub').textContent = `Great job this ${dayWord} — see you next time!`;
+  } else {
+    choreList.style.display = 'flex';
+    finale.classList.remove('show');
+
+    if (chores.length === 0){
+      const label = viewMode === 'weekend' ? 'weekend' : 'weekday';
+      choreList.innerHTML = `<div class="empty-state">No ${label} chores yet for ${kid.name} — add some with the gear icon.</div>`;
+    }
+
+    chores.forEach((chore, i) => {
+      const isDone = doneSet.has(i);
+      const card = document.createElement('button');
+      card.className = 'chore-card' + (isDone ? ' done' : '') + (i === justCompletedIndex ? ' pop' : '');
+      card.innerHTML = `
+        <div class="icon">${chore.icon}</div>
+        <div class="label">${chore.label}</div>
+        <div class="check">✓</div>
+      `;
+      card.addEventListener('click', (e) => toggleChore(i, e));
+      choreList.appendChild(card);
+    });
+  }
+
+  const total = chores.length;
+  const count = doneSet.size;
+  progressText.textContent = `${count} / ${total}`;
+  progressFill.style.width = total ? `${(count/total)*100}%` : '0%';
+}
+
+function renderAll(justCompletedIndex){
+  renderKidRow();
+  renderChores(justCompletedIndex);
+}
+
+function toggleChore(index, evt){
+  const kid = activeKid();
+  const doneSet = done[kid.id][viewMode];
+  const wasDone = doneSet.has(index);
+
+  if (wasDone){
+    doneSet.delete(index);
+    renderAll();
+    return;
+  }
+
+  doneSet.add(index);
+  const rect = evt.currentTarget.getBoundingClientRect();
+  burst(rect.left + rect.width/2, rect.top + rect.height/2, kid.color);
+  playPop();
+
+  const willBeAllDone = doneSet.size === currentChores(kid).length;
+  renderAll(index);
+
+  if (willBeAllDone){
+    setTimeout(() => { fireworks(); playFanfare(); }, 250);
+  }
+}
+
+renderAll();
+
+// ---------------- confetti / fireworks canvas ----------------
+const canvas = document.getElementById('fx');
+const ctx = canvas.getContext('2d');
+let particles = [];
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function resize(){
+  canvas.width = window.innerWidth * devicePixelRatio;
+  canvas.height = window.innerHeight * devicePixelRatio;
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+}
+resize();
+window.addEventListener('resize', resize);
+
+const PALETTE = ['#FF6B6B','#FFC93C','#4ECB71','#9B7EDE','#4FB6E8','#FF9FE5'];
+
+function burst(x, y, themeColor){
+  if (reduceMotion) return;
+  const colors = [themeColor, ...PALETTE];
+  const n = 26;
+  for (let i=0;i<n;i++){
+    const angle = (Math.PI*2*i)/n + Math.random()*0.4;
+    const speed = 3 + Math.random()*4;
+    particles.push({
+      x, y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed - 2, g: 0.12,
+      size: 5 + Math.random()*4, color: colors[Math.floor(Math.random()*colors.length)],
+      life: 60 + Math.random()*20, age: 0,
+      shape: Math.random() < 0.5 ? 'circle' : 'rect',
+      rot: Math.random()*Math.PI, vrot: (Math.random()-0.5)*0.3
+    });
+  }
+  ensureLoop();
+}
+
+function fireworks(){
+  if (reduceMotion) return;
+  const w = window.innerWidth, h = window.innerHeight;
+  for (let p=0; p<5; p++){
+    setTimeout(() => {
+      const x = w * (0.15 + Math.random()*0.7);
+      const y = h * (0.2 + Math.random()*0.35);
+      const color = PALETTE[Math.floor(Math.random()*PALETTE.length)];
+      burst(x, y, color);
+    }, p * 260);
+  }
+}
+
+function ensureLoop(){
+  if (ensureLoop._running) return;
+  ensureLoop._running = true;
+  requestAnimationFrame(tick);
+}
+function tick(){
+  ctx.clearRect(0,0,window.innerWidth, window.innerHeight);
+  particles.forEach(p => {
+    p.age++; p.vy += p.g; p.x += p.vx; p.y += p.vy; p.rot += p.vrot;
+    const alpha = Math.max(0, 1 - p.age/p.life);
+    ctx.save(); ctx.globalAlpha = alpha; ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillStyle = p.color;
+    if (p.shape === 'circle'){ ctx.beginPath(); ctx.arc(0,0,p.size/2,0,Math.PI*2); ctx.fill(); }
+    else { ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size*0.6); }
+    ctx.restore();
+  });
+  particles = particles.filter(p => p.age < p.life);
+  if (particles.length){ requestAnimationFrame(tick); } else { ensureLoop._running = false; }
+}
+
+// ---------------- tiny sound effects ----------------
+let audioCtx;
+function getAudioCtx(){ if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
+function playTone(freq, start, dur, type='sine', vol=0.18){
+  try{
+    const ac = getAudioCtx();
+    const osc = ac.createOscillator(); const gain = ac.createGain();
+    osc.type = type; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, ac.currentTime + start);
+    gain.gain.linearRampToValueAtTime(vol, ac.currentTime + start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + start + dur);
+    osc.connect(gain).connect(ac.destination);
+    osc.start(ac.currentTime + start); osc.stop(ac.currentTime + start + dur + 0.05);
+  }catch(e){}
+}
+function playPop(){ playTone(880,0,0.12,'triangle',0.16); playTone(1320,0.05,0.12,'triangle',0.12); }
+function playFanfare(){ [523.25,659.25,783.99,1046.5].forEach((f,i)=>playTone(f,i*0.12,0.35,'triangle',0.16)); }
+
+// ================= PARENT PIN + EDIT PANEL =================
+const gearBtn = document.getElementById('gearBtn');
+const pinOverlay = document.getElementById('pinOverlay');
+const pinDots = document.getElementById('pinDots');
+const pinPad = document.getElementById('pinPad');
+const editOverlay = document.getElementById('editOverlay');
+const kidEditList = document.getElementById('kidEditList');
+const addKidBtn = document.getElementById('addKidBtn');
+const passcodeInput = document.getElementById('passcodeInput');
+
+let enteredPin = '';
+let draft = null; // working copy while editing
+
+gearBtn.addEventListener('click', () => {
+  enteredPin = '';
+  updatePinDots();
+  pinOverlay.classList.add('show');
+});
+
+document.getElementById('pinCancel').addEventListener('click', () => pinOverlay.classList.remove('show'));
+document.getElementById('pinBack').addEventListener('click', () => {
+  enteredPin = enteredPin.slice(0,-1);
+  updatePinDots();
+});
+pinPad.querySelectorAll('button[data-d]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (enteredPin.length >= 4) return;
+    enteredPin += btn.dataset.d;
+    updatePinDots();
+    if (enteredPin.length === 4){
+      setTimeout(checkPin, 120);
+    }
+  });
+});
+function updatePinDots(){
+  const dots = pinDots.querySelectorAll('.dot');
+  dots.forEach((d,i) => d.classList.toggle('filled', i < enteredPin.length));
+  pinDots.classList.remove('error');
+}
+function checkPin(){
+  if (enteredPin === PASSCODE){
+    pinOverlay.classList.remove('show');
+    openEditPanel();
+  } else {
+    pinDots.classList.add('error');
+    if (navigator.vibrate) navigator.vibrate(150);
+    setTimeout(() => { enteredPin=''; updatePinDots(); }, 400);
+  }
+}
+
+const saveStatus = document.getElementById('saveStatus');
+function showSaveStatus(msg, isWarning){
+  saveStatus.textContent = msg;
+  saveStatus.className = 'save-status ' + (isWarning ? 'warning' : 'success');
+}
+function hideSaveStatus(){
+  saveStatus.className = 'save-status hidden';
+}
+
+function openEditPanel(){
+  draft = JSON.parse(JSON.stringify(KIDS));
+  passcodeInput.value = PASSCODE;
+  hideSaveStatus();
+  renderEditPanel();
+  editOverlay.classList.add('show');
+}
+
+function renderChoreGroup(container, ki, groupKey, title, groupClass){
+  const label = document.createElement('div');
+  label.className = 'chore-group-label' + (groupClass ? ' '+groupClass : '');
+  label.textContent = title;
+  container.appendChild(label);
+
+  const rowsContainer = document.createElement('div');
+  rowsContainer.className = 'chore-rows';
+  container.appendChild(rowsContainer);
+
+  draft[ki][groupKey].forEach((chore, ci) => {
+    const row = document.createElement('div');
+    row.className = 'chore-edit-row';
+    row.dataset.c = ci;
+    row.style.order = ci;
+    row.innerHTML = `
+      <span class="drag-handle">⠿</span>
+      <input type="text" class="icon-input" maxlength="4" value="${chore.icon}" data-k="${ki}" data-g="${groupKey}" data-c="${ci}" data-f="icon">
+      <input type="text" class="label-input" value="${chore.label}" data-k="${ki}" data-g="${groupKey}" data-c="${ci}" data-f="label">
+      <button type="button" class="icon-btn" data-k="${ki}" data-g="${groupKey}" data-c="${ci}" data-action="removeChore">✕</button>
+    `;
+    rowsContainer.appendChild(row);
+  });
+
+  setupDragReorder(rowsContainer, ki, groupKey);
+
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'add-chore-btn';
+  addBtn.textContent = '+ Add ' + (groupKey === 'weekend' ? 'weekend' : 'weekday') + ' chore';
+  addBtn.addEventListener('click', () => {
+    draft[ki][groupKey].push({ icon: '⭐', label: 'New chore' });
+    renderEditPanel();
+  });
+  container.appendChild(addBtn);
+}
+
+// Touch/mouse-friendly drag-to-reorder for a group's chore rows.
+// Uses flex "order" for live reflow while dragging, then commits the
+// final order back into the draft array on release.
+function setupDragReorder(rowsContainer, ki, groupKey){
+  rowsContainer.querySelectorAll('.drag-handle').forEach(handle => {
+    handle.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const row = handle.closest('.chore-edit-row');
+      const order = Array.from(rowsContainer.querySelectorAll('.chore-edit-row'));
+      const startY = e.clientY;
+      const startRect = row.getBoundingClientRect();
+
+      row.classList.add('dragging');
+      try{ handle.setPointerCapture(e.pointerId); }catch(err){}
+
+      function onMove(ev){
+        const dy = ev.clientY - startY;
+        row.style.transform = `translateY(${dy}px)`;
+        const dragCenter = startRect.top + startRect.height/2 + dy;
+
+        const others = order.filter(r => r !== row);
+        let newIndex = 0;
+        others.forEach(other => {
+          const r = other.getBoundingClientRect();
+          if (dragCenter > r.top + r.height/2) newIndex++;
+        });
+
+        const curIndex = order.indexOf(row);
+        if (newIndex !== curIndex){
+          order.splice(curIndex, 1);
+          order.splice(newIndex, 0, row);
+          order.forEach((el, i) => { el.style.order = i; });
+        }
+      }
+
+      function onUp(ev){
+        handle.removeEventListener('pointermove', onMove);
+        handle.removeEventListener('pointerup', onUp);
+        handle.removeEventListener('pointercancel', onUp);
+        row.classList.remove('dragging');
+        row.style.transform = '';
+
+        const newArr = order.map(el => draft[ki][groupKey][+el.dataset.c]);
+        draft[ki][groupKey] = newArr;
+        renderEditPanel();
+      }
+
+      handle.addEventListener('pointermove', onMove);
+      handle.addEventListener('pointerup', onUp);
+      handle.addEventListener('pointercancel', onUp);
+    });
+  });
+}
+
+function renderEditPanel(){
+  kidEditList.innerHTML = '';
+  draft.forEach((kid, ki) => {
+    const card = document.createElement('div');
+    card.className = 'kid-edit-card';
+
+    const head = document.createElement('div');
+    head.className = 'kid-edit-head';
+    head.innerHTML = `
+      <div class="field emoji-field">
+        <label>Emoji</label>
+        <input type="text" maxlength="4" value="${kid.emoji}" data-k="${ki}" data-f="emoji">
+      </div>
+      <div class="field name-field">
+        <label>Name</label>
+        <input type="text" value="${kid.name}" data-k="${ki}" data-f="name">
+      </div>
+    `;
+    card.appendChild(head);
+
+    const colorLabel = document.createElement('div');
+    colorLabel.className = 'field';
+    colorLabel.innerHTML = '<label>Color</label>';
+    const swatches = document.createElement('div');
+    swatches.className = 'color-swatches';
+    SWATCHES.forEach(c => {
+      const sw = document.createElement('button');
+      sw.className = 'swatch' + (kid.color === c ? ' selected' : '');
+      sw.style.background = c;
+      sw.type = 'button';
+      sw.addEventListener('click', () => { draft[ki].color = c; renderEditPanel(); });
+      swatches.appendChild(sw);
+    });
+    colorLabel.appendChild(swatches);
+    card.appendChild(colorLabel);
+
+    // Weekday chores
+    const weekdayWrap = document.createElement('div');
+    renderChoreGroup(weekdayWrap, ki, 'weekday', '🏫 Weekday chores');
+    card.appendChild(weekdayWrap);
+
+    // Weekend chores
+    const weekendWrap = document.createElement('div');
+    renderChoreGroup(weekendWrap, ki, 'weekend', '🎈 Weekend chores', 'weekend');
+    card.appendChild(weekendWrap);
+
+    const copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.className = 'copy-btn';
+    copyBtn.textContent = 'Copy weekday list to weekend';
+    copyBtn.addEventListener('click', () => {
+      draft[ki].weekend = JSON.parse(JSON.stringify(draft[ki].weekday));
+      renderEditPanel();
+    });
+    card.appendChild(copyBtn);
+
+    const removeKidBtn = document.createElement('button');
+    removeKidBtn.type = 'button';
+    removeKidBtn.className = 'remove-kid-btn';
+    removeKidBtn.textContent = 'Remove this kid';
+    removeKidBtn.addEventListener('click', () => {
+      draft.splice(ki, 1);
+      renderEditPanel();
+    });
+    card.appendChild(removeKidBtn);
+
+    kidEditList.appendChild(card);
+  });
+
+  kidEditList.querySelectorAll('input[data-f]').forEach(input => {
+    input.addEventListener('input', () => {
+      const ki = +input.dataset.k;
+      const field = input.dataset.f;
+      if (input.dataset.g !== undefined){
+        draft[ki][input.dataset.g][+input.dataset.c][field] = input.value;
+      } else {
+        draft[ki][field] = input.value;
+      }
+    });
+  });
+  kidEditList.querySelectorAll('[data-action="removeChore"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      draft[+btn.dataset.k][btn.dataset.g].splice(+btn.dataset.c, 1);
+      renderEditPanel();
+    });
+  });
+}
+
+addKidBtn.addEventListener('click', () => {
+  draft.push({
+    id: 'kid' + Date.now(),
+    name: 'New kid', emoji: '⭐',
+    color: SWATCHES[draft.length % SWATCHES.length],
+    weekday: [{ icon: '🛏️', label: 'Make your bed' }],
+    weekend: [{ icon: '🛏️', label: 'Make your bed' }]
+  });
+  renderEditPanel();
+});
+
+document.getElementById('editCancel').addEventListener('click', () => {
+  editOverlay.classList.remove('show');
+  draft = null;
+  hideSaveStatus();
+});
+
+document.getElementById('editSave').addEventListener('click', () => {
+  const cleanGroup = arr => arr
+    .map(c => ({ icon: (c.icon||'').trim() || '⭐', label: (c.label||'').trim() }))
+    .filter(c => c.label.length > 0);
+
+  const cleaned = draft.map(k => ({
+    ...k,
+    name: k.name.trim() || 'Kid',
+    emoji: k.emoji.trim() || '⭐',
+    weekday: cleanGroup(k.weekday),
+    weekend: cleanGroup(k.weekend)
+  }));
+
+  KIDS = cleaned;
+  const newPasscode = passcodeInput.value.trim();
+  PASSCODE = /^\d{4}$/.test(newPasscode) ? newPasscode : PASSCODE;
+
+  resetDoneState();
+  if (!KIDS.find(k => k.id === activeKidId)){
+    activeKidId = KIDS[0] ? KIDS[0].id : null;
+  }
+  renderAll();
+
+  const persisted = saveConfig({ kids: KIDS, passcode: PASSCODE });
+
+  if (persisted){
+    showSaveStatus('✅ Saved — this will still be here next time you open the app.', false);
+    setTimeout(() => {
+      editOverlay.classList.remove('show');
+      draft = null;
+      hideSaveStatus();
+    }, 900);
+  } else {
+    showSaveStatus(
+      "⚠️ Showing your changes now, but this device/browser won't let the app save permanently. " +
+      "If you're viewing this inside a chat preview, that's expected — save the file to your tablet " +
+      "and open it there directly (not in a preview) so edits stick between reloads.",
+      true
+    );
+    // leave the panel open so the warning is visible; draft stays so Cancel/Save still work
+  }
+});
+</script>
+</body>
+</html>

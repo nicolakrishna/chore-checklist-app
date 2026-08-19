@@ -40,12 +40,14 @@ takes the app off the air.
    the shape of a kid or a chore, extend that function to convert old saved
    data to the new shape, or real data will be lost on next open.
 6. **Never hard-code the family's real details.** `DEFAULT_KIDS` and
-   `DEFAULT_PASSCODE` must stay generic placeholders. The repository is
-   private, but **the published site is public to anyone with the URL**, and
-   `index.html` is served verbatim — so a real child's name written into
-   `DEFAULT_KIDS` is a real child's name published on the open internet. If
-   asked to "add my daughter Ava", don't edit the code: explain that the gear
-   button does this, and that it keeps her name off the public page.
+   `DEFAULT_PASSCODE` must stay generic placeholders. **This repository is
+   public and so is the published site**, and `index.html` is served verbatim
+   — so a real child's name written into `DEFAULT_KIDS` is a real child's name
+   published on the open internet, in a public repo, indexable by search
+   engines. If asked to "add my daughter Ava", don't edit the code: explain
+   that the gear button does this, and that it keeps her name off the public
+   page. This rule is not negotiable, and it applies to anything else
+   identifying too — school names, addresses, routines, photos.
 
 ## How the saved data actually works
 
@@ -76,9 +78,10 @@ That is intentional — it's a fresh list each day.
 
 ## How it goes live
 
-Hosted on **GitHub Pages**, serving the `main` branch directly. Merging to
-`main` *is* the deploy — GitHub publishes it within a minute or two. There is
-no CI, no build, and no deploy script.
+Live at **https://nicolakrishna.github.io/chore-checklist-app/**, hosted on
+GitHub Pages serving the `main` branch directly. Merging to `main` *is* the
+deploy — GitHub publishes within a minute or two. There is no CI, no build,
+and no deploy script.
 
 Two consequences worth remembering:
 

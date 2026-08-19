@@ -21,68 +21,63 @@ Nicola @ claude.ai/code  ──►  GitHub (private repo)  ──►  GitHub Pag
 No CI, no deploy scripts, no servers, no secrets anywhere. Merging to `main`
 is the deploy.
 
-## One-time setup
+## Current state
 
-### 1. Decide who owns the repository
+| | |
+| --- | --- |
+| Live site | <https://nicolakrishna.github.io/chore-checklist-app/> |
+| Repo | `nicolakrishna/chore-checklist-app`, **public** |
+| Owner | Nicola's account; Greg has push (not admin) |
+| Pages source | `main` branch, `/` root — no build, no Actions |
 
-This matters for cost. Publishing a Pages site **from a private repo requires
-a paid plan on the account that owns the repo** — private repos themselves are
-free on any account, but serving a public website from one is not.
+The repo is public, which is why Pages costs nothing: GitHub Free can only
+serve Pages from a public repo. Private repos are free on any plan, but
+*serving a website from* one requires GitHub Pro on the owning account.
 
-- **If you already have GitHub Pro:** create the repo on *your* account and add
-  Nicola as a collaborator. She can still drive it from claude.ai/code, because
-  cloud sessions can reach any repo her connected GitHub account can see. No
-  extra subscription.
-- **If you don't:** Nicola creates the repo on her own account and upgrades it
-  to Pro (~$4/month).
-- **If you'd rather not pay:** make the repo public instead. It contains no
-  family data — only the placeholder `DEFAULT_KIDS` ("Mia", "Leo") and the
-  default passcode. `CLAUDE.md` rule 6 is written to keep it that way.
+Being public is safe here **only because no family data is in the code**. The
+kids, chores and passcode live in `localStorage` on the tablet; `index.html`
+contains just the placeholder `DEFAULT_KIDS` ("Mia", "Leo") and passcode
+`1234`. `CLAUDE.md` rule 6 exists to keep it that way, and is the one rule
+worth checking if the app is ever handed to someone new.
 
-### 2. Create the repo and push
+The in-app passcode is client-side only and is not security — it stops a
+6-year-old changing their chore list, nothing more.
 
-Create an empty **private** repo named `chore-checklist-app` on the owning
-account — no README, no .gitignore, no licence. Then:
+## Remaining setup
 
-```sh
-git remote add origin git@github.com:<owner>/chore-checklist-app.git
-git push -u origin main
-```
+### 1. ~~Create the repo and push~~ — done
 
-Note: commit signing is currently disabled for these commits because the
-1Password SSH agent wasn't running. Re-enable it however you normally do if
-you want signed history going forward.
+Commits are authored as `Greg Matthew Crossley <greg@crossley.to>`. Signing is
+disabled on them, because the 1Password SSH agent wasn't running at the time.
+Re-enable it however you normally do if you want signed history going forward.
 
-### 3. Turn on GitHub Pages
+### 2. ~~Turn on GitHub Pages~~ — done
 
-Repo **Settings → Pages**:
+Verified live: `index.html`, the manifest and all four icons return 200 at the
+project subpath, and the served HTML is byte-identical to the committed file.
 
-- **Source:** Deploy from a branch
-- **Branch:** `main`, folder `/ (root)`
-- Save.
+Note the Pages cache header: `cache-control: max-age=600`. A browser that has
+already loaded the page will keep showing its copy for up to 10 minutes after
+a deploy. This is the single most likely source of "my change didn't work" —
+it's covered in Nicola's guide.
 
-After a minute the site is at
-`https://<owner>.github.io/chore-checklist-app/`.
-
-The site is publicly reachable by anyone with that URL even though the repo is
-private. That's inherent to Pages. The passcode in the app is client-side only
-and is not real security — treat the URL as unlisted, not secret.
-
-### 4. Give Nicola access to Claude Code on the web
+### 3. Give Nicola access to Claude Code on the web
 
 She needs a Claude **Pro, Max or Team** plan — Claude Code on the web isn't
 available on the free tier.
 
-1. She creates a GitHub account (if she hasn't).
-2. If you own the repo, add her under **Settings → Collaborators**.
-3. She goes to **claude.ai/code**, and connects GitHub when prompted. This
-   authorizes the Claude GitHub App.
-4. `chore-checklist-app` should now appear in her repository list.
+She owns the repo, so there's no access to grant — she just needs to connect
+the two accounts:
 
-Have her do one throwaway change end-to-end with you watching, so the merge
-step isn't new on the day she actually needs it.
+1. Go to **claude.ai/code** and connect GitHub when prompted. This authorizes
+   the Claude GitHub App.
+2. `chore-checklist-app` should then appear in her repository list.
 
-### 5. Install it on the tablet
+Have her do one throwaway change end-to-end with you watching — something
+obvious like changing a background colour — so the merge step isn't new on the
+day she actually wants something.
+
+### 4. Install it on the tablet
 
 Open the Pages URL in Safari, then **Share → Add to Home Screen**.
 
@@ -92,7 +87,7 @@ ordinary websites after about seven days of non-use, which would wipe the
 chore configuration over a holiday. Home-screen installation exempts the site
 from that eviction.
 
-### 6. Change the passcode
+### 5. Change the passcode
 
 Open the app, gear button, passcode `1234`, and change it. Then set up the
 real kids and chores through the gear button — **not** in the code, so their

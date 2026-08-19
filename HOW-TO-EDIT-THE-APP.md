@@ -40,7 +40,11 @@ and that's what Claude is for.
    it offers to do that.
 7. On the page that opens, click the green **Merge pull request** button, then
    **Confirm merge**.
-8. Wait a couple of minutes, then reload the app on the tablet.
+8. Wait a few minutes, then reload the app on the tablet. See "It won't look
+   changed straight away" below — this bit catches everyone out.
+
+The app lives at:
+**https://nicolakrishna.github.io/chore-checklist-app/**
 
 ### Useful things to know
 
@@ -49,8 +53,15 @@ and that's what Claude is for.
   change that was merged" — it can put it back.
 - **Step 7 is the point of no return.** Before you merge, nothing is live. You
   can abandon a conversation you don't like and no harm is done.
-- **It won't look changed straight away.** Give it two minutes, then reload. On
-  the tablet, swipe down on the page to force a proper refresh.
+- **It won't look changed straight away, and that's normal.** Two things add
+  up here: GitHub takes a minute or two to publish, and then the tablet may
+  keep showing its saved copy for **up to 10 more minutes**. So a change can
+  take a quarter of an hour to appear. It has almost certainly worked — wait
+  before assuming otherwise.
+
+  To hurry it along: if you opened the app from the home-screen icon, close it
+  completely first (swipe up from the bottom and flick the app away), then
+  reopen it. In Safari, pull down on the page to refresh.
 - **The kids' chore data is safe.** Code changes don't touch the chore lists
   saved on the tablet.
 - **If you ask for something impossible**, it'll tell you. It's also been told

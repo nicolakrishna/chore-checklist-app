@@ -62,6 +62,17 @@ The app lives at:
   To hurry it along: if you opened the app from the home-screen icon, close it
   completely first (swipe up from the bottom and flick the app away), then
   reopen it. In Safari, pull down on the page to refresh.
+
+- **To check straight away whether your change worked**, open this in Safari
+  and put any number on the end, changing the number each time:
+
+  `https://nicolakrishna.github.io/chore-checklist-app/?2`
+
+  then `?3`, then `?4`, and so on. The tablet treats each one as a brand new
+  page, so it always fetches the latest version instead of showing you its
+  saved copy. Handy when you've just merged something and don't want to wait.
+  The app works exactly the same either way — nothing is affected by the
+  number.
 - **The kids' chore data is safe.** Code changes don't touch the chore lists
   saved on the tablet.
 - **If you ask for something impossible**, it'll tell you. It's also been told

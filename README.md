@@ -64,6 +64,19 @@ in Nicola's guide with instructions to force-close the home-screen app. If she
 reports a change not working, ask how long ago she merged it before looking
 for a real bug.
 
+**Decision: we are not fixing this.** Pages allows no header control, so the
+only workaround is a loader shell that fetches the app body with a
+cache-busting query string — which breaks the single-file rule and shows a
+blank screen when the fetch fails on poor wifi. Not worth it for a delay that
+only inconveniences an adult. `CLAUDE.md` records this so future sessions
+don't re-attempt it.
+
+The escape hatch is a query string: `…/chore-checklist-app/?2` is a different
+cache key and fetches fresh. If you ever want it properly fast, the route is a
+subdomain of your own domain proxied through Cloudflare's free tier, which
+does give header control — worth doing for the nicer URL, with the cache
+control as a bonus.
+
 ## Remaining setup
 
 ### 1. Give Nicola access to Claude Code on the web

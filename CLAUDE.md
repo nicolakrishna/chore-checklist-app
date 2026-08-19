@@ -94,8 +94,22 @@ Two consequences worth remembering:
   therefore **relative** (`icons/…`, not `/icons/…`). Keep them relative — a
   leading slash will 404 in production while still working locally, which is
   the worst kind of bug to catch.
-- Pages sits behind a CDN, so a change can take a few minutes to appear in a
-  browser that already has the old copy. That's expected; it isn't a failure.
+- Pages sits behind a CDN and sends `cache-control: max-age=600`, so a change
+  can take up to ~15 minutes to appear in a browser that already has the old
+  copy. That's expected; it isn't a failure.
+
+**Do not try to engineer around that cache.** It has been considered and
+rejected. GitHub Pages allows no control over response headers, so the only
+workaround is splitting the app into a loader shell that fetches its content
+with a cache-busting query string. That breaks rule 1, stops the file opening
+from disk, and — the actual reason — shows the children a blank screen
+whenever the fetch fails on poor wifi. A 10-minute delay that inconveniences
+an adult is much cheaper than an app that intermittently fails to load for a
+6-year-old at breakfast.
+
+If someone wants a change to show up immediately, they append `?2` (then `?3`,
+and so on) to the URL: a different query string is a different cache key, so
+the browser fetches it fresh. That's the supported answer.
 
 ## Testing your change
 

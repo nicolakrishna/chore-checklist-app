@@ -135,8 +135,12 @@ iPad  ─┘  Bearer <household key>└─► chore_sync.py on 127.0.0.1:8787 �
 ```
 
 The app itself stays on GitHub Pages. The server stores one JSON document
-(`{kids, passcode}`) and keeps the last 50 saves. It's `server/chore_sync.py`,
-Python standard library only. Last save wins, which is fine with one editor.
+(`{kids, passcode}`) and keeps the last 50 saves; last save wins, which is fine
+with one editor. It also stores today's ticks (`/config/ticks`), merged one
+tick at a time by timestamp so simultaneous ticks on two devices both count,
+and keeps 14 days of them. It's `server/chore_sync.py`, Python standard
+library only. Both live under `/config`, so the Apache site only ever proxies
+that one path.
 
 **The server address and key are not in the code.** The repo and site are
 public, so each device is paired once by pasting a *pairing code*
@@ -207,10 +211,14 @@ H=chores.your-domain.example     # the real subdomain
 ### Day to day
 
 - Devices check for changes when the app opens, when it comes back to the
-  foreground, and every 5 minutes. A save is sent straight away; if the server
-  can't be reached it's kept on the device and retried on the next check.
+  foreground, and every 10 seconds while the app is on screen (not while
+  hidden). With the iPad and two phones open that's under one small request a
+  second. Saves and ticks are sent straight away; if the server can't be
+  reached they're kept on the device and retried on the next check.
 - Logs: `journalctl -u chore-sync`. Requests are logged without headers, so
-  the key never appears.
+  the key never appears. Routine successful checks (`GET` → 200) aren't
+  logged, so the journal shows saves, ticks and errors only. Apache's
+  `chores-access.log` still records every request; Ubuntu rotates it.
 - Database: `/var/lib/private/chore-sync/chores.db`. Back it up with the rest of
   the box.
 

@@ -74,8 +74,10 @@ This trips people up, so read it before changing anything about chores.
   "Share with other devices" → paste the pairing code). Paired devices also
   send each save to a small sync server on Greg's Hetzner box and pick up
   each other's changes on open, on returning to the foreground, and every
-  5 minutes. The pairing is stored separately under `choreAppSyncV1`, never
-  inside `STORAGE_KEY`'s data. Data pulled from the server goes through
+  10 seconds while the app is on screen (never while hidden). Today's ticks
+  are shared too, so Nicola can watch progress from her phone. The pairing
+  is stored separately under `choreAppSyncV1`, never inside `STORAGE_KEY`'s
+  data. Data pulled from the server goes through
   `migrateKid()` like anything else loaded. Server code is in `server/`;
   Greg's `README.md` covers running it.
 - So: editing `DEFAULT_KIDS` will **not** change what Nicola sees on the
@@ -85,8 +87,19 @@ This trips people up, so read it before changing anything about chores.
 - A code change *is* right when she wants new behaviour or a new look:
   different colours, layout, animations, a new kind of reward, sounds, etc.
 
-Ticked-off chores are kept in memory only and reset when the page reloads.
-That is intentional — it's a fresh list each day.
+Ticked-off chores are saved **for the day** under `choreAppTicksV1` (a
+separate key from `STORAGE_KEY`), so a reload or the 🔄 button keeps
+progress, and the list starts fresh on the first open after midnight, or at
+midnight if the app is left open. That "fresh list each day" is intentional.
+
+Ticks are stored by **chore id**, not by position, so they stay on the right
+chore when the list is edited or reordered. Every chore has a permanent `id`;
+`migrateKid()` gives older saved chores one worked out from the kid, list and
+label, so every device independently arrives at the *same* id. Keep it that
+way: a random id there would make devices disagree about which chore a tick
+belongs to. New chores get a random id when saved. On the server, ticks are
+merged one at a time by timestamp (newest wins), never replaced wholesale,
+so two kids ticking on two devices can't undo each other.
 
 ## Files
 
@@ -116,7 +129,10 @@ Two consequences worth remembering:
   go live on merge. A change to `server/` needs Greg to run the "Updating"
   steps in `README.md`, so tell whoever asked. Keep the app compatible with
   the server version that's already running (`GET`/`PUT /config`, body
-  `{"config": {kids, passcode}}`).
+  `{"config": {kids, passcode}}`; `GET /config/ticks?day=`, `PUT
+  /config/ticks` with `{day, items}`). An older server answers 404 for
+  anything it doesn't know, and the app must treat that as "keep it on this
+  device" rather than an error.
 - **The site is served from a subpath** (`/chore-checklist-app/`), not a domain
   root. All asset paths in `index.html` and `manifest.webmanifest` are
   therefore **relative** (`icons/…`, not `/icons/…`). Keep them relative — a

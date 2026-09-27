@@ -29,8 +29,13 @@ on one shows up on the other. You set this up once on each device:
    chores.
 
 After that, just edit and tap **Save** as usual. You'll see "shared with your
-other devices". The iPad picks the change up next time the app is opened or
-woken up, or within 5 minutes if it's already open.
+other devices". The iPad picks the change up within about 10 seconds if the
+app is open, or as soon as it's opened or woken up.
+
+**Watching progress:** the kids' ticks are shared too. Open the app on your
+phone and tap a child to see what they've done today. It updates by itself
+every few seconds while you're looking. Ticks stay until the next day, so
+the 🔄 button or reopening the app won't lose them.
 
 If it says it **couldn't reach the sharing server**, your change is still saved
 on that device and will be shared by itself once the connection is back. Nothing

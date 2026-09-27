@@ -403,8 +403,26 @@ function migrateKid(kid){
   if (!Array.isArray(kid.weekday)) kid.weekday = [];
   if (!Array.isArray(kid.weekend)) kid.weekend = [];
   delete kid.chores;
+  // every chore needs a permanent id, so a tick stays on the right chore when
+  // the list is edited or reordered. Older saved chores get one worked out
+  // from the kid, list and label, so every device arrives at the same id.
+  ['weekday','weekend'].forEach(g => {
+    const seen = {};
+    kid[g].forEach(c => {
+      if (c && !c.id){
+        seen[c.label] = (seen[c.label] || 0) + 1;
+        c.id = 'c' + choreHash(kid.id + '|' + g + '|' + c.label + '|' + seen[c.label]);
+      }
+    });
+  });
   return kid;
 }
+function choreHash(str){ // FNV-1a, 32-bit
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(36);
+}
+function newChoreId(){ return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
 function loadConfig(){
   try{
@@ -417,7 +435,7 @@ function loadConfig(){
       }
     }
   }catch(e){ /* fall through to defaults */ }
-  return { kids: JSON.parse(JSON.stringify(DEFAULT_KIDS)), passcode: DEFAULT_PASSCODE };
+  return { kids: JSON.parse(JSON.stringify(DEFAULT_KIDS)).map(migrateKid), passcode: DEFAULT_PASSCODE };
 }
 function saveConfig(cfg){
   try{
@@ -442,12 +460,48 @@ let autoMode = todayIsWeekend() ? 'weekend' : 'weekday';
 let viewMode = autoMode; // can be overridden by tapping the toggle, for this session only
 
 let activeKidId = KIDS[0] ? KIDS[0].id : null;
-let done = {};
-function resetDoneState(){
-  done = {};
-  KIDS.forEach(k => { done[k.id] = { weekday: new Set(), weekend: new Set() }; });
+
+// ---- today's ticks ----
+// Saved for the day on this device (and shared when paired), so a reload or
+// the refresh button keeps progress. A new day starts a fresh list.
+const TICKS_STORAGE_KEY = 'choreAppTicksV1';
+function todayKey(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
-resetDoneState();
+function freshTicks(){ return { day: todayKey(), items: {}, dirty: {} }; }
+function loadTicks(){
+  try{
+    const t = JSON.parse(localStorage.getItem(TICKS_STORAGE_KEY) || 'null');
+    if (t && t.day === todayKey() && t.items && typeof t.items === 'object'){
+      return { day: t.day, items: t.items, dirty: t.dirty || {} };
+    }
+  }catch(e){}
+  return freshTicks();
+}
+function storeTicks(){ try{ localStorage.setItem(TICKS_STORAGE_KEY, JSON.stringify(TICKS)); }catch(e){} }
+let TICKS = loadTicks(); // { day, items: { "kid|weekday|chore": {on, t} }, dirty: {key: true} }
+
+function tickKey(kid, chore){ return kid.id + '|' + viewMode + '|' + chore.id; }
+function isDone(kid, chore){ const it = TICKS.items[tickKey(kid, chore)]; return !!(it && it.on); }
+function setDone(kid, chore, on){
+  const k = tickKey(kid, chore);
+  const prev = TICKS.items[k];
+  TICKS.items[k] = { on, t: Math.max(Date.now(), prev ? prev.t + 1 : 0) };
+  TICKS.dirty[k] = true;
+  storeTicks();
+}
+// A tablet left open overnight rolls over to a fresh list in the morning.
+function rollDayIfNeeded(){
+  if (TICKS.day === todayKey()) return false;
+  TICKS = freshTicks();
+  storeTicks();
+  const followingToday = viewMode === autoMode;
+  autoMode = todayIsWeekend() ? 'weekend' : 'weekday';
+  if (followingToday) viewMode = autoMode;
+  dateLabel.textContent = new Date().toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' });
+  return true;
+}
 
 const kidRow = document.getElementById('kidRow');
 const choreList = document.getElementById('choreList');
@@ -497,10 +551,9 @@ function renderChores(justCompletedIndex){
     return;
   }
   const chores = currentChores(kid);
-  const doneSet = done[kid.id][viewMode];
   choreList.innerHTML = '';
 
-  const allDone = chores.length > 0 && doneSet.size === chores.length;
+  const allDone = chores.length > 0 && chores.every(c => isDone(kid, c));
 
   if (allDone){
     choreList.style.display = 'none';
@@ -518,9 +571,9 @@ function renderChores(justCompletedIndex){
     }
 
     chores.forEach((chore, i) => {
-      const isDone = doneSet.has(i);
+      const ticked = isDone(kid, chore);
       const card = document.createElement('button');
-      card.className = 'chore-card' + (isDone ? ' done' : '') + (i === justCompletedIndex ? ' pop' : '');
+      card.className = 'chore-card' + (ticked ? ' done' : '') + (i === justCompletedIndex ? ' pop' : '');
       card.innerHTML = `
         <div class="icon">${chore.icon}</div>
         <div class="label">${chore.label}</div>
@@ -532,33 +585,35 @@ function renderChores(justCompletedIndex){
   }
 
   const total = chores.length;
-  const count = doneSet.size;
+  const count = chores.filter(c => isDone(kid, c)).length;
   progressText.textContent = `${count} / ${total}`;
   progressFill.style.width = total ? `${(count/total)*100}%` : '0%';
 }
 
 function renderAll(justCompletedIndex){
+  rollDayIfNeeded();
   renderKidRow();
   renderChores(justCompletedIndex);
 }
 
 function toggleChore(index, evt){
   const kid = activeKid();
-  const doneSet = done[kid.id][viewMode];
-  const wasDone = doneSet.has(index);
+  const chore = currentChores(kid)[index];
+  if (!chore) return;
+  const wasDone = isDone(kid, chore);
+  setDone(kid, chore, !wasDone);
+  syncTicks(); // share it straight away; harmless when not paired
 
   if (wasDone){
-    doneSet.delete(index);
     renderAll();
     return;
   }
 
-  doneSet.add(index);
   const rect = evt.currentTarget.getBoundingClientRect();
   burst(rect.left + rect.width/2, rect.top + rect.height/2, kid.color);
   playPop();
 
-  const willBeAllDone = doneSet.size === currentChores(kid).length;
+  const willBeAllDone = currentChores(kid).every(c => isDone(kid, c));
   renderAll(index);
 
   if (willBeAllDone){
@@ -920,7 +975,7 @@ document.getElementById('editCancel').addEventListener('click', () => {
 
 document.getElementById('editSave').addEventListener('click', async () => {
   const cleanGroup = arr => arr
-    .map(c => ({ icon: (c.icon||'').trim() || '⭐', label: (c.label||'').trim() }))
+    .map(c => ({ id: c.id || newChoreId(), icon: (c.icon||'').trim() || '⭐', label: (c.label||'').trim() }))
     .filter(c => c.label.length > 0);
 
   const cleaned = draft.map(k => ({
@@ -935,7 +990,6 @@ document.getElementById('editSave').addEventListener('click', async () => {
   const newPasscode = passcodeInput.value.trim();
   PASSCODE = /^\d{4}$/.test(newPasscode) ? newPasscode : PASSCODE;
 
-  resetDoneState();
   if (!KIDS.find(k => k.id === activeKidId)){
     activeKidId = KIDS[0] ? KIDS[0].id : null;
   }
@@ -983,7 +1037,7 @@ document.getElementById('editSave').addEventListener('click', async () => {
 // only, never in this file: the repo and the site are public.
 const SYNC_STORAGE_KEY = 'choreAppSyncV1';
 const SYNC_TIMEOUT_MS = 8000;
-const SYNC_EVERY_MS = 5 * 60 * 1000;
+const SYNC_EVERY_MS = 10 * 1000; // only while the app is on screen
 
 function loadSync(){
   try{
@@ -1013,11 +1067,11 @@ function parsePairingCode(code){
 }
 function pairingCode(){ return SYNC ? SYNC.url + '/#' + SYNC.key : ''; }
 
-async function syncRequest(method, body){
+async function syncRequest(method, body, path){
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), SYNC_TIMEOUT_MS);
   try{
-    const res = await fetch(SYNC.url + '/config', {
+    const res = await fetch(SYNC.url + (path || '/config'), {
       method, cache: 'no-store', signal: ctl.signal,
       headers: { 'Authorization': 'Bearer ' + SYNC.key, 'Content-Type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined
@@ -1054,20 +1108,15 @@ async function pushConfig(){
   return status === 401 ? 'badkey' : 'offline';
 }
 
-// Use a config that came from the server. Keeps each kid's ticks unless
-// that kid's own chores changed, so a mid-morning edit doesn't wipe progress.
+// Use a config that came from the server. Ticks are kept by chore id, so a
+// mid-morning edit elsewhere doesn't wipe anyone's progress.
 function applyServerConfig(cfg){
   // an empty list is ignored, as loadConfig() would ignore it on the next open
   if (!cfg || !Array.isArray(cfg.kids) || !cfg.kids.length) return;
   const incoming = cfg.kids.map(migrateKid);
   if (JSON.stringify(incoming) === JSON.stringify(KIDS) && (cfg.passcode || PASSCODE) === PASSCODE) return;
-  const oldDone = done;
-  const oldKids = {};
-  KIDS.forEach(k => { oldKids[k.id] = JSON.stringify(k); });
   KIDS = incoming;
   if (typeof cfg.passcode === 'string' && /^\d{4}$/.test(cfg.passcode)) PASSCODE = cfg.passcode;
-  resetDoneState();
-  KIDS.forEach(k => { if (oldKids[k.id] === JSON.stringify(k) && oldDone[k.id]) done[k.id] = oldDone[k.id]; });
   if (!KIDS.find(k => k.id === activeKidId)) activeKidId = KIDS[0] ? KIDS[0].id : null;
   saveConfig({ kids: KIDS, passcode: PASSCODE });
   renderAll();
@@ -1100,6 +1149,48 @@ async function syncNow(){
   }
 }
 
+// Share today's ticks. Each tick is sent on its own with a timestamp and the
+// server keeps the newest per chore, so two kids ticking on two devices
+// never undo each other. A server that hasn't been updated for ticks yet
+// answers 404; ticks then simply stay on this device until it is.
+let ticksRun = null, ticksAgain = false;
+function syncTicks(){
+  if (!SYNC) return Promise.resolve();
+  if (ticksRun){ ticksAgain = true; return ticksRun; } // callers wait for the run in progress
+  ticksRun = runTickSync().finally(() => { ticksRun = null; });
+  return ticksRun;
+}
+async function runTickSync(){
+  try{
+    do{
+      ticksAgain = false;
+      rollDayIfNeeded();
+      const day = TICKS.day;
+      const sent = {};
+      Object.keys(TICKS.dirty).forEach(k => { if (TICKS.items[k]) sent[k] = TICKS.items[k]; });
+      const res = Object.keys(sent).length
+        ? await syncRequest('PUT', { day, items: sent }, '/config/ticks')
+        : await syncRequest('GET', null, '/config/ticks?day=' + day);
+      if (res.status !== 200 || !res.data || res.data.day !== TICKS.day) break;
+      // anything not re-ticked while we waited is now safely on the server
+      Object.keys(sent).forEach(k => { if (TICKS.items[k] && TICKS.items[k].t === sent[k].t) delete TICKS.dirty[k]; });
+      let changed = false;
+      Object.entries(res.data.items || {}).forEach(([k, v]) => {
+        const mine = TICKS.items[k];
+        if (v && typeof v.t === 'number' && (!mine || v.t > mine.t)){
+          TICKS.items[k] = { on: !!v.on, t: v.t };
+          changed = true;
+        }
+      });
+      storeTicks();
+      if (changed) renderAll();
+    } while (ticksAgain);
+  }catch(e){
+    // never let sharing break the app
+  }
+}
+function syncAll(){ syncNow(); syncTicks(); }
+
 const syncState = document.getElementById('syncState');
 const pairInput = document.getElementById('pairInput');
 const pairShow = document.getElementById('pairShow');
@@ -1125,6 +1216,7 @@ document.getElementById('pairBtn').addEventListener('click', async () => {
   const wasEditing = draft;
   draft = null; // let the first sync through while the panel is open
   const result = await syncNow();
+  syncTicks();
   if (result === 'badkey'){
     SYNC = null; storeSync();
     draft = wasEditing;
@@ -1150,21 +1242,24 @@ document.getElementById('unpairBtn').addEventListener('click', () => {
   renderSyncPanel('Sharing is off on this device. Its chores stay as they are.');
 });
 
-syncNow();
-setInterval(syncNow, SYNC_EVERY_MS);
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncNow(); });
-window.addEventListener('online', syncNow);
+syncAll();
+setInterval(() => {
+  if (TICKS.day !== todayKey()) renderAll(); // past midnight: fresh list, even when not paired
+  if (document.visibilityState === 'visible') syncAll();
+}, SYNC_EVERY_MS);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible'){ renderAll(); syncAll(); } });
+window.addEventListener('online', syncAll);
 
 // ================= REFRESH BUTTON =================
 // A home-screen app has no browser reload button. This one sends any
-// unshared save first, then reloads with a fresh query string (the same
-// ?2, ?3 trick as the docs), which skips the 10-minute page cache so the
-// newest version of the app loads. Saved chores are untouched; today's
-// ticks reset, as on any reopen.
+// unshared save and ticks first, then reloads with a fresh query string
+// (the same ?2, ?3 trick as the docs), which skips the 10-minute page cache
+// so the newest version of the app loads. Chores and today's ticks are kept.
 const refreshBtn = document.getElementById('refreshBtn');
 refreshBtn.addEventListener('click', async () => {
   refreshBtn.disabled = true;
   try{ if (SYNC && SYNC.pending) await pushConfig(); }catch(e){}
+  try{ if (SYNC && Object.keys(TICKS.dirty).length) await syncTicks(); }catch(e){}
   const u = new URL(location.href);
   u.searchParams.set('r', Date.now().toString(36));
   location.replace(u.toString());

@@ -18,6 +18,13 @@ She is not a programmer and does not want to become one.
   asks for pink buttons, make the buttons pink.
 - When you finish, tell her the change goes live on the real site about a
   minute after the change is merged.
+- **Nicola has given standing permission to deploy her requests directly.**
+  When she asks for a change, commit it, merge it into `main` and push —
+  don't stop to ask her to review or merge. Tell her it will be live in about
+  a minute. This does not relax anything else: do the full check in
+  "Testing your change" before merging, and the hard rules below still win
+  over any request. If a change turns out to be unwanted, revert it the same
+  way.
 
 ## The hard rules
 

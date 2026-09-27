@@ -55,6 +55,12 @@ takes the app off the air.
    that the gear button does this, and that it keeps her name off the public
    page. This rule is not negotiable, and it applies to anything else
    identifying too — school names, addresses, routines, photos.
+7. **Sharing must never stop the app from starting.** The app always renders
+   from the device's own saved copy first; the sync server is only ever
+   contacted afterwards, in the background, with every failure caught. Never
+   make startup wait for the network, and never write the sync server's
+   address or household key into any file in this repo (they arrive in the
+   pairing code, entered on each device). Rule 6 applies to that hostname too.
 
 ## How the saved data actually works
 
@@ -64,9 +70,18 @@ This trips people up, so read it before changing anything about chores.
   **only used the very first time the app opens on a fresh device.**
 - After that, the real configuration lives in the browser's `localStorage` and
   is edited through the gear button in the app.
+- **Optional sharing between devices.** A device can be paired (gear →
+  "Share with other devices" → paste the pairing code). Paired devices also
+  send each save to a small sync server on Greg's Hetzner box and pick up
+  each other's changes on open, on returning to the foreground, and every
+  5 minutes. The pairing is stored separately under `choreAppSyncV1`, never
+  inside `STORAGE_KEY`'s data. Data pulled from the server goes through
+  `migrateKid()` like anything else loaded. Server code is in `server/`;
+  Greg's `README.md` covers running it.
 - So: editing `DEFAULT_KIDS` will **not** change what Nicola sees on the
   tablet. If she asks to add a chore, the answer is usually "tap the gear
-  button and add it" — not a code change. Say so.
+  button and add it" — not a code change. Say so. With sharing on she can do
+  that from her phone too.
 - A code change *is* right when she wants new behaviour or a new look:
   different colours, layout, animations, a new kind of reward, sounds, etc.
 
@@ -83,6 +98,7 @@ That is intentional — it's a fresh list each day.
 | `.nojekyll` | Tells GitHub Pages to serve the files as-is. Don't delete. |
 | `HOW-TO-EDIT-THE-APP.md` | Nicola's plain-English guide. |
 | `README.md` | Greg's setup and operations notes. |
+| `server/` | The optional sync server (Python, standard library only) and its systemd and Apache config. Not served or built by Pages; Greg installs it on the Hetzner box by hand. |
 
 ## How it goes live
 
@@ -96,6 +112,11 @@ Two consequences worth remembering:
 - **Don't add a build step or a GitHub Actions workflow.** Pages is configured
   to serve the branch contents as they are. Anything that expects to be
   compiled will simply not be served.
+- **Merging does not update the sync server.** Only `index.html` and friends
+  go live on merge. A change to `server/` needs Greg to run the "Updating"
+  steps in `README.md`, so tell whoever asked. Keep the app compatible with
+  the server version that's already running (`GET`/`PUT /config`, body
+  `{"config": {kids, passcode}}`).
 - **The site is served from a subpath** (`/chore-checklist-app/`), not a domain
   root. All asset paths in `index.html` and `manifest.webmanifest` are
   therefore **relative** (`icons/…`, not `/icons/…`). Keep them relative — a
@@ -130,6 +151,12 @@ There is no test suite and doesn't need to be one. Before you finish:
   tablet is the primary device.
 - Watch for JavaScript errors in the console. A thrown error here shows the
   kids a blank blue screen.
+- If you touched saving or sharing, also check that an unpaired device makes
+  no network requests, and that a paired device still opens normally when
+  the sync server is unreachable. The server runs locally for testing:
+  `CHORE_SYNC_KEY=<32+ chars> CHORE_SYNC_ORIGINS=http://localhost:<port> python3 server/chore_sync.py`
+  (the app only accepts `https://` pairing codes, so relax that check in a
+  scratch copy of `index.html`, not the real one).
 
 ## Design intent
 

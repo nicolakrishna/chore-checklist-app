@@ -238,6 +238,10 @@
   .btn{ flex:1; padding:13px 0; border-radius:14px; font-family:'Baloo 2', sans-serif; font-weight:700; font-size:16px; border:none; cursor:pointer; }
   .btn-primary{ background:var(--leaf); color:#fff; }
   .btn-secondary{ background:#EEF3FB; color:var(--ink-soft); }
+  .sync-field{ margin-top:20px; }
+  .sync-state{ font-size:14px; font-weight:700; color:var(--ink); margin:0 0 8px; line-height:1.4; }
+  .sync-btn{ display:block; width:100%; margin-top:8px; }
+  .sync-field .hidden, .sync-field [hidden]{ display:none; }
 
   footer{ text-align:center; padding:6px 10px 14px; position:relative; z-index:2; }
   .edit-hint{ font-size:12px; color:var(--ink-soft); opacity:.55; font-weight:700; }
@@ -313,6 +317,20 @@
     <div class="field" style="margin-top:20px;">
       <label>Parent passcode (4 digits)</label>
       <input type="tel" maxlength="4" id="passcodeInput">
+    </div>
+
+    <div class="field sync-field">
+      <label>☁️ Share with other devices</label>
+      <p class="sync-state" id="syncState"></p>
+      <div id="syncUnpaired">
+        <input type="text" id="pairInput" placeholder="Paste the pairing code here" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button type="button" class="btn btn-secondary sync-btn" id="pairBtn">Connect</button>
+      </div>
+      <div id="syncPaired">
+        <input type="text" id="pairShow" readonly class="hidden">
+        <button type="button" class="btn btn-secondary sync-btn" id="pairShowBtn">Show code for another device</button>
+        <button type="button" class="btn btn-secondary sync-btn" id="unpairBtn">Stop sharing on this device</button>
+      </div>
     </div>
 
     <div class="save-status hidden" id="saveStatus"></div>
@@ -694,6 +712,7 @@ function openEditPanel(){
   passcodeInput.value = PASSCODE;
   hideSaveStatus();
   renderEditPanel();
+  renderSyncPanel();
   editOverlay.classList.add('show');
 }
 
@@ -893,7 +912,7 @@ document.getElementById('editCancel').addEventListener('click', () => {
   hideSaveStatus();
 });
 
-document.getElementById('editSave').addEventListener('click', () => {
+document.getElementById('editSave').addEventListener('click', async () => {
   const cleanGroup = arr => arr
     .map(c => ({ icon: (c.icon||'').trim() || '⭐', label: (c.label||'').trim() }))
     .filter(c => c.label.length > 0);
@@ -918,7 +937,20 @@ document.getElementById('editSave').addEventListener('click', () => {
 
   const persisted = saveConfig({ kids: KIDS, passcode: PASSCODE });
 
-  if (persisted){
+  if (persisted && SYNC){
+    showSaveStatus('⏳ Saving…', false);
+    const synced = await pushConfig();
+    if (synced === 'ok'){
+      showSaveStatus('✅ Saved — and shared with your other devices.', false);
+    } else {
+      showSaveStatus('✅ Saved on this device. ⚠️ ' + syncProblem(synced) + " It will try sharing again by itself.", true);
+    }
+    setTimeout(() => {
+      editOverlay.classList.remove('show');
+      draft = null;
+      hideSaveStatus();
+    }, synced === 'ok' ? 900 : 3500);
+  } else if (persisted){
     showSaveStatus('✅ Saved — this will still be here next time you open the app.', false);
     setTimeout(() => {
       editOverlay.classList.remove('show');
@@ -935,6 +967,187 @@ document.getElementById('editSave').addEventListener('click', () => {
     // leave the panel open so the warning is visible; draft stays so Cancel/Save still work
   }
 });
+
+// ================= SHARING BETWEEN DEVICES (optional) =================
+// When a device is paired with the sync server, the kids/chores/passcode
+// are also stored there, so an edit on one device shows up on the others.
+// The app never waits for the server: it always starts from this device's
+// own copy, and sharing quietly catches up whenever the server answers.
+// The pairing code (server address + household key) is kept on the device
+// only, never in this file: the repo and the site are public.
+const SYNC_STORAGE_KEY = 'choreAppSyncV1';
+const SYNC_TIMEOUT_MS = 8000;
+const SYNC_EVERY_MS = 5 * 60 * 1000;
+
+function loadSync(){
+  try{
+    const s = JSON.parse(localStorage.getItem(SYNC_STORAGE_KEY) || 'null');
+    return s && s.url && s.key ? s : null;
+  }catch(e){ return null; }
+}
+function storeSync(){
+  try{
+    if (SYNC) localStorage.setItem(SYNC_STORAGE_KEY, JSON.stringify(SYNC));
+    else localStorage.removeItem(SYNC_STORAGE_KEY);
+  }catch(e){}
+}
+let SYNC = loadSync(); // { url, key, version, pending }
+
+// A pairing code looks like https://chores.example.com/#<household key>
+function parsePairingCode(code){
+  code = (code || '').trim();
+  if (!code) return null;
+  if (!/^https?:\/\//i.test(code)) code = 'https://' + code;
+  try{
+    const u = new URL(code);
+    const key = decodeURIComponent(u.hash.slice(1));
+    if (u.protocol !== 'https:' || key.length < 32) return null;
+    return { url: u.origin, key };
+  }catch(e){ return null; }
+}
+function pairingCode(){ return SYNC ? SYNC.url + '/#' + SYNC.key : ''; }
+
+async function syncRequest(method, body){
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), SYNC_TIMEOUT_MS);
+  try{
+    const res = await fetch(SYNC.url + '/config', {
+      method, cache: 'no-store', signal: ctl.signal,
+      headers: { 'Authorization': 'Bearer ' + SYNC.key, 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    let data = null;
+    try{ data = await res.json(); }catch(e){}
+    return { status: res.status, data };
+  }catch(e){
+    return { status: 0, data: null }; // offline, timed out, or server down
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+function syncProblem(result){
+  if (result === 'badkey') return "The pairing code doesn't match the server.";
+  return "Couldn't reach the sharing server.";
+}
+
+// Send this device's kids/chores/passcode to the server.
+let pushCount = 0; // lets a slow check notice a save made while it was waiting
+async function pushConfig(){
+  if (!SYNC) return 'off';
+  pushCount++;
+  const { status, data } = await syncRequest('PUT', { config: { kids: KIDS, passcode: PASSCODE } });
+  if (status === 200 && data){
+    SYNC.version = data.version;
+    SYNC.pending = false;
+    storeSync();
+    return 'ok';
+  }
+  SYNC.pending = true; // try again on the next check
+  storeSync();
+  return status === 401 ? 'badkey' : 'offline';
+}
+
+// Use a config that came from the server. Keeps each kid's ticks unless
+// that kid's own chores changed, so a mid-morning edit doesn't wipe progress.
+function applyServerConfig(cfg){
+  // an empty list is ignored, as loadConfig() would ignore it on the next open
+  if (!cfg || !Array.isArray(cfg.kids) || !cfg.kids.length) return;
+  const incoming = cfg.kids.map(migrateKid);
+  if (JSON.stringify(incoming) === JSON.stringify(KIDS) && (cfg.passcode || PASSCODE) === PASSCODE) return;
+  const oldDone = done;
+  const oldKids = {};
+  KIDS.forEach(k => { oldKids[k.id] = JSON.stringify(k); });
+  KIDS = incoming;
+  if (typeof cfg.passcode === 'string' && /^\d{4}$/.test(cfg.passcode)) PASSCODE = cfg.passcode;
+  resetDoneState();
+  KIDS.forEach(k => { if (oldKids[k.id] === JSON.stringify(k) && oldDone[k.id]) done[k.id] = oldDone[k.id]; });
+  if (!KIDS.find(k => k.id === activeKidId)) activeKidId = KIDS[0] ? KIDS[0].id : null;
+  saveConfig({ kids: KIDS, passcode: PASSCODE });
+  renderAll();
+}
+
+// Catch up with the server. Returns 'ok', 'off', 'badkey' or 'offline'.
+let syncBusy = false;
+async function syncNow(){
+  if (!SYNC || syncBusy) return SYNC ? 'busy' : 'off';
+  if (editOverlay.classList.contains('show') && draft) return 'busy'; // don't change things mid-edit
+  syncBusy = true;
+  try{
+    if (SYNC.pending) return await pushConfig(); // an unsent edit here wins
+    const pushesBefore = pushCount;
+    const { status, data } = await syncRequest('GET');
+    if (pushCount !== pushesBefore || (editOverlay.classList.contains('show') && draft)) return 'busy'; // stale now
+    if (status === 404) return await pushConfig(); // first device to pair fills the server
+    if (status === 401) return 'badkey';
+    if (status !== 200 || !data) return 'offline';
+    if (data.version !== SYNC.version){
+      applyServerConfig(data.config);
+      SYNC.version = data.version;
+      storeSync();
+    }
+    return 'ok';
+  }catch(e){
+    return 'offline';
+  }finally{
+    syncBusy = false;
+  }
+}
+
+const syncState = document.getElementById('syncState');
+const pairInput = document.getElementById('pairInput');
+const pairShow = document.getElementById('pairShow');
+function renderSyncPanel(message){
+  document.getElementById('syncUnpaired').hidden = !!SYNC;
+  document.getElementById('syncPaired').hidden = !SYNC;
+  pairShow.classList.add('hidden');
+  pairInput.value = '';
+  syncState.textContent = message || (SYNC
+    ? '✅ Sharing is on. Changes saved here show up on your other devices.'
+    : 'Off. Paste the pairing code to share these chores with your other devices.');
+}
+
+document.getElementById('pairBtn').addEventListener('click', async () => {
+  const parsed = parsePairingCode(pairInput.value);
+  if (!parsed){
+    syncState.textContent = "⚠️ That doesn't look like a pairing code. It starts with https:// and is quite long.";
+    return;
+  }
+  SYNC = { url: parsed.url, key: parsed.key, version: null, pending: false };
+  storeSync();
+  syncState.textContent = '⏳ Connecting…';
+  const wasEditing = draft;
+  draft = null; // let the first sync through while the panel is open
+  const result = await syncNow();
+  if (result === 'badkey'){
+    SYNC = null; storeSync();
+    draft = wasEditing;
+    renderSyncPanel('⚠️ ' + syncProblem(result) + ' Check the code and try again.');
+    return;
+  }
+  draft = JSON.parse(JSON.stringify(KIDS)); // show what's shared now
+  passcodeInput.value = PASSCODE;
+  renderEditPanel();
+  renderSyncPanel(result === 'ok'
+    ? '✅ Connected! These chores are now shared with your other devices.'
+    : "✅ Connected. ⚠️ Couldn't reach the server just now; it will keep trying.");
+});
+document.getElementById('pairShowBtn').addEventListener('click', () => {
+  pairShow.value = pairingCode();
+  pairShow.classList.remove('hidden');
+  pairShow.select();
+  syncState.textContent = 'Copy this code and paste it into the gear settings on the other device. Keep it private.';
+});
+document.getElementById('unpairBtn').addEventListener('click', () => {
+  SYNC = null;
+  storeSync();
+  renderSyncPanel('Sharing is off on this device. Its chores stay as they are.');
+});
+
+syncNow();
+setInterval(syncNow, SYNC_EVERY_MS);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncNow(); });
+window.addEventListener('online', syncNow);
 </script>
 </body>
 </html>

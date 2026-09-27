@@ -1,0 +1,24 @@
+[Unit]
+Description=Chore Checklist sync server
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/chore-sync/chore_sync.py
+# CHORE_SYNC_KEY lives here, readable by root only
+EnvironmentFile=/etc/chore-sync.env
+# Runs as a throwaway unprivileged user; the database lives in
+# /var/lib/chore-sync (really /var/lib/private/chore-sync)
+DynamicUser=yes
+StateDirectory=chore-sync
+Restart=on-failure
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+RestrictAddressFamilies=AF_INET AF_INET6
+MemoryMax=100M
+
+[Install]
+WantedBy=multi-user.target

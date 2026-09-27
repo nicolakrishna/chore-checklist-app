@@ -15,6 +15,30 @@ This is the right way to do it. Asking Claude to change the chore list in the
 code will *look* like it worked but won't actually change anything on the
 tablet, because the tablet remembers its own list.
 
+### Making changes from your phone
+
+Once your phone and the kids' iPad are both **connected**, a change you save
+on one shows up on the other. You set this up once on each device:
+
+1. Greg sends you a **pairing code**. It's a long link starting with
+   `https://`. Keep it private, like a password.
+2. **On the iPad first:** open the app, tap the gear, enter the passcode.
+   Scroll to **☁️ Share with other devices**, paste the code, and tap
+   **Connect**. The iPad's chores get copied up.
+3. **Then on your phone:** same steps. Your phone picks up the iPad's kids and
+   chores.
+
+After that, just edit and tap **Save** as usual. You'll see "shared with your
+other devices". The iPad picks the change up next time the app is opened or
+woken up, or within 5 minutes if it's already open.
+
+If it says it **couldn't reach the sharing server**, your change is still saved
+on that device and will be shared by itself once the connection is back. Nothing
+to do. The app keeps working on the iPad either way.
+
+On a new phone or iPad, tap **Show code for another device** on one that's
+already connected, and copy that code across.
+
 ---
 
 ## Job 2: changing how the app looks or behaves

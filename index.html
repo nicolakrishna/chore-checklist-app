@@ -77,16 +77,16 @@
   .kid-btn.active .avatar{ background:rgba(255,255,255,.35); }
   .kid-btn:active{ transform:translateY(1px); box-shadow:0 2px 0 rgba(27,42,74,.1); }
 
-  /* Weekday / weekend toggle */
+  /* Weekday / Saturday / Sunday toggle */
   .day-toggle-wrap{ display:flex; justify-content:center; padding:14px 16px 2px; position:relative; z-index:2; }
   .day-toggle{
     display:flex; background:rgba(255,255,255,.75); border-radius:18px; padding:5px;
     box-shadow:inset 0 2px 4px rgba(27,42,74,.06);
   }
   .day-toggle button{
-    border:none; background:transparent; padding:9px 20px; border-radius:14px;
-    font-family:'Baloo 2', sans-serif; font-weight:700; font-size:15px; color:var(--ink-soft);
-    cursor:pointer; display:flex; align-items:center; gap:6px;
+    border:none; background:transparent; padding:9px 14px; border-radius:14px;
+    font-family:'Baloo 2', sans-serif; font-weight:700; font-size:14px; color:var(--ink-soft);
+    cursor:pointer; display:flex; align-items:center; gap:5px; white-space:nowrap;
     transition:background .2s ease, color .2s ease;
   }
   .day-toggle button.active{ background:var(--grape); color:#fff; box-shadow:0 3px 0 rgba(27,42,74,.12); }
@@ -202,7 +202,8 @@
     font-family:'Baloo 2', sans-serif; font-weight:700; font-size:14px; color:var(--ink);
     margin:16px 0 8px; display:flex; align-items:center; gap:6px;
   }
-  .chore-group-label.weekend{ color:var(--grape); }
+  .chore-group-label.saturday{ color:var(--grape); }
+  .chore-group-label.sunday{ color:var(--sun); }
   .chore-rows{ display:flex; flex-direction:column; gap:8px; }
   .chore-edit-row{ display:flex; align-items:center; gap:8px; background:#fff; }
   .chore-edit-row input.icon-input{ width:48px; text-align:center; }
@@ -262,7 +263,8 @@
   <div>
     <div class="day-toggle" id="dayToggle">
       <button data-mode="weekday" id="weekdayBtn">🏫 Weekday</button>
-      <button data-mode="weekend" id="weekendBtn">🎈 Weekend</button>
+      <button data-mode="saturday" id="saturdayBtn">🎈 Saturday</button>
+      <button data-mode="sunday" id="sundayBtn">☀️ Sunday</button>
     </div>
     <p class="auto-note" id="autoNote"></p>
   </div>
@@ -310,7 +312,7 @@
 <div class="overlay" id="editOverlay">
   <div class="modal modal-edit">
     <h3 class="display">Edit chores</h3>
-    <p class="sub">Set different chores for weekdays and weekends</p>
+    <p class="sub">Set different chores for weekdays, Saturdays, and Sundays</p>
     <div id="kidEditList"></div>
     <button class="add-kid-btn" id="addKidBtn">+ Add a kid</button>
 
@@ -347,8 +349,8 @@
    DEFAULT CONFIG — only used the very first time the page opens
    on a device. After that, edits made through the gear button are
    saved and take over. Change the starting passcode here if you
-   like (default is 1234). Each kid has a separate "weekday" and
-   "weekend" chore list.
+   like (default is 1234). Each kid has three separate chore lists:
+   "weekday", "saturday", and "sunday".
    ============================================================ */
 const DEFAULT_KIDS = [
   {
@@ -359,11 +361,16 @@ const DEFAULT_KIDS = [
       { icon: '🐶', label: 'Feed the dog' },
       { icon: '🎒', label: 'Pack your school bag' },
     ],
-    weekend: [
+    saturday: [
       { icon: '🛏️', label: 'Make your bed' },
       { icon: '🪥', label: 'Brush your teeth' },
       { icon: '🧸', label: 'Tidy your room' },
       { icon: '🧺', label: 'Help with laundry' },
+    ],
+    sunday: [
+      { icon: '🛏️', label: 'Make your bed' },
+      { icon: '🪥', label: 'Brush your teeth' },
+      { icon: '🎒', label: 'Pack your school bag' },
     ]
   },
   {
@@ -374,29 +381,42 @@ const DEFAULT_KIDS = [
       { icon: '👕', label: 'Put clothes in hamper' },
       { icon: '📚', label: 'Read for 10 minutes' },
     ],
-    weekend: [
+    saturday: [
       { icon: '🛏️', label: 'Make your bed' },
       { icon: '🪥', label: 'Brush your teeth' },
       { icon: '🍽️', label: 'Help set the table' },
       { icon: '🌱', label: 'Water the plants' },
+    ],
+    sunday: [
+      { icon: '🛏️', label: 'Make your bed' },
+      { icon: '🪥', label: 'Brush your teeth' },
+      { icon: '📚', label: 'Read for 10 minutes' },
     ]
   },
 ];
 const DEFAULT_PASSCODE = '1234';
 /* ============================================================ */
 
-const STORAGE_KEY = 'choreAppConfigV2';
+const STORAGE_KEY = 'choreAppConfigV2'; // DO NOT CHANGE — see CLAUDE.md rule 4
 const SWATCHES = ['#FF6B6B','#FFC93C','#4ECB71','#9B7EDE','#4FB6E8','#FF9FE5'];
 
 function migrateKid(kid){
-  // supports older saved configs that only had a single "chores" list
-  if (!kid.weekday && !kid.weekend && Array.isArray(kid.chores)){
+  // supports older saved configs: a single "chores" list, or the older
+  // two-list "weekday"/"weekend" shape (before Saturday and Sunday were split out)
+  if (!kid.weekday && !kid.saturday && !kid.sunday && Array.isArray(kid.chores)){
     kid.weekday = JSON.parse(JSON.stringify(kid.chores));
-    kid.weekend = JSON.parse(JSON.stringify(kid.chores));
+    kid.saturday = JSON.parse(JSON.stringify(kid.chores));
+    kid.sunday = JSON.parse(JSON.stringify(kid.chores));
+  }
+  if (Array.isArray(kid.weekend) && !kid.saturday && !kid.sunday){
+    kid.saturday = JSON.parse(JSON.stringify(kid.weekend));
+    kid.sunday = JSON.parse(JSON.stringify(kid.weekend));
   }
   if (!Array.isArray(kid.weekday)) kid.weekday = [];
-  if (!Array.isArray(kid.weekend)) kid.weekend = [];
+  if (!Array.isArray(kid.saturday)) kid.saturday = [];
+  if (!Array.isArray(kid.sunday)) kid.sunday = [];
   delete kid.chores;
+  delete kid.weekend;
   return kid;
 }
 
@@ -428,18 +448,22 @@ let CONFIG = loadConfig();
 let KIDS = CONFIG.kids;
 let PASSCODE = CONFIG.passcode || DEFAULT_PASSCODE;
 
-function todayIsWeekend(){
-  const d = new Date().getDay(); // 0 = Sunday, 6 = Saturday
-  return d === 0 || d === 6;
+const DAY_NAMES = { weekday: 'Weekday', saturday: 'Saturday', sunday: 'Sunday' };
+
+function autoModeForToday(){
+  const d = new Date().getDay(); // 0 = Sunday ... 6 = Saturday
+  if (d === 6) return 'saturday';
+  if (d === 0) return 'sunday';
+  return 'weekday';
 }
-let autoMode = todayIsWeekend() ? 'weekend' : 'weekday';
+let autoMode = autoModeForToday();
 let viewMode = autoMode; // can be overridden by tapping the toggle, for this session only
 
 let activeKidId = KIDS[0] ? KIDS[0].id : null;
 let done = {};
 function resetDoneState(){
   done = {};
-  KIDS.forEach(k => { done[k.id] = { weekday: new Set(), weekend: new Set() }; });
+  KIDS.forEach(k => { done[k.id] = { weekday: new Set(), saturday: new Set(), sunday: new Set() }; });
 }
 resetDoneState();
 
@@ -450,7 +474,8 @@ const progressFill = document.getElementById('progressFill');
 const progressText = document.getElementById('progressText');
 const dateLabel = document.getElementById('dateLabel');
 const weekdayBtn = document.getElementById('weekdayBtn');
-const weekendBtn = document.getElementById('weekendBtn');
+const saturdayBtn = document.getElementById('saturdayBtn');
+const sundayBtn = document.getElementById('sundayBtn');
 const autoNote = document.getElementById('autoNote');
 
 dateLabel.textContent = new Date().toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' });
@@ -460,13 +485,15 @@ function currentChores(kid){ return (kid[viewMode] || []); }
 
 function renderDayToggle(){
   weekdayBtn.classList.toggle('active', viewMode === 'weekday');
-  weekendBtn.classList.toggle('active', viewMode === 'weekend');
+  saturdayBtn.classList.toggle('active', viewMode === 'saturday');
+  sundayBtn.classList.toggle('active', viewMode === 'sunday');
   autoNote.textContent = viewMode === autoMode
     ? "Today's usual list"
-    : `Switched from today's usual "${autoMode}" list`;
+    : `Switched from today's usual "${DAY_NAMES[autoMode]}" list`;
 }
 weekdayBtn.addEventListener('click', () => { viewMode = 'weekday'; renderAll(); });
-weekendBtn.addEventListener('click', () => { viewMode = 'weekend'; renderAll(); });
+saturdayBtn.addEventListener('click', () => { viewMode = 'saturday'; renderAll(); });
+sundayBtn.addEventListener('click', () => { viewMode = 'sunday'; renderAll(); });
 
 function renderKidRow(){
   kidRow.innerHTML = '';
@@ -499,7 +526,7 @@ function renderChores(justCompletedIndex){
   if (allDone){
     choreList.style.display = 'none';
     finale.classList.add('show');
-    const dayWord = viewMode === 'weekend' ? 'weekend' : 'day';
+    const dayWord = viewMode === 'weekday' ? 'day' : DAY_NAMES[viewMode];
     document.getElementById('finaleTitle').textContent = `All done, ${kid.name}! 🎉`;
     document.getElementById('finaleSub').textContent = `Great job this ${dayWord} — see you next time!`;
   } else {
@@ -507,8 +534,7 @@ function renderChores(justCompletedIndex){
     finale.classList.remove('show');
 
     if (chores.length === 0){
-      const label = viewMode === 'weekend' ? 'weekend' : 'weekday';
-      choreList.innerHTML = `<div class="empty-state">No ${label} chores yet for ${kid.name} — add some with the gear icon.</div>`;
+      choreList.innerHTML = `<div class="empty-state">No ${DAY_NAMES[viewMode]} chores yet for ${kid.name} — add some with the gear icon.</div>`;
     }
 
     chores.forEach((chore, i) => {
@@ -745,7 +771,7 @@ function renderChoreGroup(container, ki, groupKey, title, groupClass){
   const addBtn = document.createElement('button');
   addBtn.type = 'button';
   addBtn.className = 'add-chore-btn';
-  addBtn.textContent = '+ Add ' + (groupKey === 'weekend' ? 'weekend' : 'weekday') + ' chore';
+  addBtn.textContent = '+ Add ' + DAY_NAMES[groupKey] + ' chore';
   addBtn.addEventListener('click', () => {
     draft[ki][groupKey].push({ icon: '⭐', label: 'New chore' });
     renderEditPanel();
@@ -848,20 +874,38 @@ function renderEditPanel(){
     renderChoreGroup(weekdayWrap, ki, 'weekday', '🏫 Weekday chores');
     card.appendChild(weekdayWrap);
 
-    // Weekend chores
-    const weekendWrap = document.createElement('div');
-    renderChoreGroup(weekendWrap, ki, 'weekend', '🎈 Weekend chores', 'weekend');
-    card.appendChild(weekendWrap);
+    // Saturday chores
+    const saturdayWrap = document.createElement('div');
+    renderChoreGroup(saturdayWrap, ki, 'saturday', '🎈 Saturday chores', 'saturday');
+    card.appendChild(saturdayWrap);
 
-    const copyBtn = document.createElement('button');
-    copyBtn.type = 'button';
-    copyBtn.className = 'copy-btn';
-    copyBtn.textContent = 'Copy weekday list to weekend';
-    copyBtn.addEventListener('click', () => {
-      draft[ki].weekend = JSON.parse(JSON.stringify(draft[ki].weekday));
-      renderEditPanel();
+    // Sunday chores
+    const sundayWrap = document.createElement('div');
+    renderChoreGroup(sundayWrap, ki, 'sunday', '☀️ Sunday chores', 'sunday');
+    card.appendChild(sundayWrap);
+
+    const copyRow = document.createElement('div');
+    copyRow.style.display = 'flex';
+    copyRow.style.flexWrap = 'wrap';
+    copyRow.style.gap = '8px';
+
+    const copyConfigs = [
+      { label: 'Copy weekday → Saturday', from: 'weekday', to: 'saturday' },
+      { label: 'Copy weekday → Sunday', from: 'weekday', to: 'sunday' },
+      { label: 'Copy Saturday → Sunday', from: 'saturday', to: 'sunday' },
+    ];
+    copyConfigs.forEach(cfg => {
+      const copyBtn = document.createElement('button');
+      copyBtn.type = 'button';
+      copyBtn.className = 'copy-btn';
+      copyBtn.textContent = cfg.label;
+      copyBtn.addEventListener('click', () => {
+        draft[ki][cfg.to] = JSON.parse(JSON.stringify(draft[ki][cfg.from]));
+        renderEditPanel();
+      });
+      copyRow.appendChild(copyBtn);
     });
-    card.appendChild(copyBtn);
+    card.appendChild(copyRow);
 
     const removeKidBtn = document.createElement('button');
     removeKidBtn.type = 'button';
@@ -901,7 +945,8 @@ addKidBtn.addEventListener('click', () => {
     name: 'New kid', emoji: '⭐',
     color: SWATCHES[draft.length % SWATCHES.length],
     weekday: [{ icon: '🛏️', label: 'Make your bed' }],
-    weekend: [{ icon: '🛏️', label: 'Make your bed' }]
+    saturday: [{ icon: '🛏️', label: 'Make your bed' }],
+    sunday: [{ icon: '🛏️', label: 'Make your bed' }]
   });
   renderEditPanel();
 });
@@ -922,7 +967,8 @@ document.getElementById('editSave').addEventListener('click', async () => {
     name: k.name.trim() || 'Kid',
     emoji: k.emoji.trim() || '⭐',
     weekday: cleanGroup(k.weekday),
-    weekend: cleanGroup(k.weekend)
+    saturday: cleanGroup(k.saturday),
+    sunday: cleanGroup(k.sunday)
   }));
 
   KIDS = cleaned;

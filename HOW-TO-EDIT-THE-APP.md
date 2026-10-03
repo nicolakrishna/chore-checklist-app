@@ -23,6 +23,10 @@ picks stay the same all day (and match on every shared device), Sunday's
 picks are different from Saturday's, and two kids never get the same jar
 chore on the same day while there are enough to go round.
 
+Tap **1×** next to a jar chore that only needs doing once a weekend (like
+watering plants). It then goes to just one kid, on just one day, each
+weekend. Tap it again to turn that off.
+
 ### Making changes from your phone
 
 Once your phone and the kids' iPad are both **connected**, a change you save

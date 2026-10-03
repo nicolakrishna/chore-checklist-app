@@ -223,6 +223,11 @@
     width:36px; height:36px; border-radius:12px; border:none; background:#fff; color:var(--grape);
     font-size:20px; font-weight:800; cursor:pointer; box-shadow:0 2px 0 rgba(27,42,74,.08);
   }
+  .once-btn{
+    border:none; background:#EEF3FB; color:var(--ink-soft); height:34px; padding:0 9px; border-radius:10px;
+    font-family:'Baloo 2', sans-serif; font-size:13px; font-weight:800; cursor:pointer; flex-shrink:0; white-space:nowrap;
+  }
+  .once-btn.on{ background:var(--grape); color:#fff; }
   .jar-count .num{ min-width:22px; text-align:center; font-family:'Baloo 2', sans-serif; font-size:20px; }
   .chore-rows{ display:flex; flex-direction:column; gap:8px; }
   .chore-edit-row{ display:flex; align-items:center; gap:8px; background:#fff; }
@@ -338,7 +343,7 @@
 
     <div class="jar-edit-card">
       <div class="chore-group-label jar">🎲 Weekend chore jar</div>
-      <p class="jar-help">Shared chores for everyone. Each Saturday and Sunday, every kid gets a few picked at random from the jar, on top of their own list. Set how many under each kid.</p>
+      <p class="jar-help">Shared chores for everyone. Each Saturday and Sunday, every kid gets a few picked at random from the jar, on top of their own list. Set how many under each kid. Tap <b>1×</b> on a chore that only needs doing once a weekend, and it goes to just one kid on one day.</p>
       <div id="jarEditList"></div>
     </div>
 
@@ -467,7 +472,11 @@ function migrateKid(kid){
 function migratePool(pool){
   if (!Array.isArray(pool)) return [];
   return pool.filter(c => c && typeof c.label === 'string')
-             .map(c => ({ icon: typeof c.icon === 'string' ? c.icon : '⭐', label: c.label }));
+             .map(c => {
+               const chore = { icon: typeof c.icon === 'string' ? c.icon : '⭐', label: c.label };
+               if (c.oncePerWeekend === true) chore.oncePerWeekend = true; // only one kid, one day, per weekend
+               return chore;
+             });
 }
 
 function loadConfig(){
@@ -544,6 +553,7 @@ function computeJarPicks(){
   };
   let deck = shuffled(), pos = 0;
 
+  const usedOnce = new Set(); // "once per weekend" jar chores already handed out
   let order = KIDS.slice();
   const startAt = Math.floor(rand() * order.length);
   order = order.slice(startAt).concat(order.slice(0, startAt));
@@ -552,7 +562,8 @@ function computeJarPicks(){
     const ok = (kid, idx) => {
       const lbl = normLabel(POOL[idx].label);
       return !picks[dayKey][kid.id].some(c => normLabel(c.label) === lbl)
-          && !(kid[dayKey] || []).some(c => normLabel(c.label) === lbl);
+          && !(kid[dayKey] || []).some(c => normLabel(c.label) === lbl)
+          && !(POOL[idx].oncePerWeekend && usedOnce.has(lbl));
     };
     const want = {};
     order.forEach(kid => {
@@ -574,6 +585,7 @@ function computeJarPicks(){
           if (found === -1){ deck = shuffled(); pos = 0; continue; }
           [deck[pos], deck[found]] = [deck[found], deck[pos]];
           const chore = POOL[deck[pos++]];
+          if (chore.oncePerWeekend) usedOnce.add(normLabel(chore.label));
           picks[dayKey][kid.id].push({ icon: chore.icon, label: chore.label, fromJar: true });
           return;
         }
@@ -895,7 +907,7 @@ function escapeAttr(s){
 
 // Draws one editable list of chores. "list" says where the chores live:
 // get() returns the array, set(arr) replaces it (used after a drag).
-function renderChoreGroup(container, list, title, groupClass, addText){
+function renderChoreGroup(container, list, title, groupClass, addText, withOnceToggle){
   if (title){
     const label = document.createElement('div');
     label.className = 'chore-group-label' + (groupClass ? ' '+groupClass : '');
@@ -916,8 +928,16 @@ function renderChoreGroup(container, list, title, groupClass, addText){
       <span class="drag-handle">⠿</span>
       <input type="text" class="icon-input" maxlength="4" value="${escapeAttr(chore.icon)}" data-cf="icon">
       <input type="text" class="label-input" value="${escapeAttr(chore.label)}" data-cf="label">
+      ${withOnceToggle ? `<button type="button" class="once-btn${chore.oncePerWeekend ? ' on' : ''}" aria-pressed="${chore.oncePerWeekend ? 'true' : 'false'}" aria-label="Only once per weekend">1×</button>` : ''}
       <button type="button" class="icon-btn" aria-label="Remove chore">✕</button>
     `;
+    if (withOnceToggle){
+      row.querySelector('.once-btn').addEventListener('click', () => {
+        const c = list.get()[ci];
+        if (c.oncePerWeekend) delete c.oncePerWeekend; else c.oncePerWeekend = true;
+        renderEditPanel();
+      });
+    }
     row.querySelectorAll('input[data-cf]').forEach(input => {
       input.addEventListener('input', () => { list.get()[ci][input.dataset.cf] = input.value; });
     });
@@ -1109,7 +1129,7 @@ function renderEditPanel(){
 
   // the shared weekend jar
   jarEditList.innerHTML = '';
-  renderChoreGroup(jarEditList, jarList, '', '', '+ Add a jar chore');
+  renderChoreGroup(jarEditList, jarList, '', '', '+ Add a jar chore', true);
 }
 
 addKidBtn.addEventListener('click', () => {
@@ -1147,7 +1167,9 @@ document.getElementById('editSave').addEventListener('click', async () => {
   }));
 
   KIDS = cleaned;
-  POOL = cleanGroup(draftPool);
+  POOL = migratePool(draftPool
+    .map(c => ({ icon: (c.icon||'').trim() || '⭐', label: (c.label||'').trim(), oncePerWeekend: c.oncePerWeekend === true }))
+    .filter(c => c.label.length > 0));
   JAR = computeJarPicks();
   const newPasscode = passcodeInput.value.trim();
   PASSCODE = /^\d{4}$/.test(newPasscode) ? newPasscode : PASSCODE;

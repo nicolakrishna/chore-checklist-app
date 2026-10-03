@@ -15,6 +15,14 @@ This is the right way to do it. Asking Claude to change the chore list in the
 code will *look* like it worked but won't actually change anything on the
 tablet, because the tablet remembers its own list.
 
+**The weekend chore jar** is in the same place, below the kids. Put shared
+chores in the jar, and use the − / + under each kid to set how many jar
+chores they get. Every Saturday and Sunday each kid gets that many picked at
+random, added to the bottom of their own list with a 🎲 next to them. The
+picks stay the same all day (and match on every shared device), Sunday's
+picks are different from Saturday's, and two kids never get the same jar
+chore on the same day while there are enough to go round.
+
 ### Making changes from your phone
 
 Once your phone and the kids' iPad are both **connected**, a change you save

@@ -135,6 +135,55 @@
     background:#F1EBFC; border-radius:12px; padding:6px 7px;
   }
   .chore-card.done .jar-badge{ opacity:.5; }
+
+  /* weekend jar chores stay a mystery until the rest of the list is done */
+  .mystery-card{
+    display:flex; align-items:center; gap:16px; min-height:84px; padding:16px 18px;
+    border-radius:var(--radius); border:3px dashed #D6C8F5; background:rgba(255,255,255,.55);
+    font-family:'Baloo 2', sans-serif; color:var(--ink-soft);
+  }
+  .mystery-card .icon{
+    font-size:34px; width:52px; height:52px; display:flex; align-items:center; justify-content:center;
+    background:#F1EBFC; border-radius:16px; flex-shrink:0;
+  }
+  .mystery-card .label{ flex:1; font-weight:800; font-size:19px; line-height:1.2; }
+  .mystery-card .label small{ display:block; font-size:15px; font-family:'Nunito', sans-serif; }
+  .mystery-card .lock{ font-size:26px; flex-shrink:0; }
+  .roll-btn{
+    display:flex; align-items:center; justify-content:center; gap:14px; width:100%; min-height:96px;
+    border:none; border-radius:var(--radius); cursor:pointer; padding:16px 18px;
+    background:var(--grape); color:#fff;
+    font-family:'Baloo 2', sans-serif; font-weight:800; font-size:26px;
+    box-shadow:0 6px 0 #7A5FC0, 0 10px 24px rgba(27,42,74,.15);
+    animation:wiggle 2.4s ease-in-out infinite;
+  }
+  .roll-btn .die{ font-size:40px; }
+  .roll-btn:active{ transform:translateY(4px); box-shadow:0 2px 0 #7A5FC0; animation:none; }
+  @keyframes wiggle{ 0%,70%,100%{transform:rotate(0) scale(1);} 76%{transform:rotate(-3deg) scale(1.03);} 82%{transform:rotate(3deg) scale(1.03);} 88%{transform:rotate(-2deg);} 94%{transform:rotate(1deg);} }
+
+  .modal-roll{ max-width:360px; text-align:center; padding:30px 22px; }
+  .roll-die{ font-size:110px; line-height:1; height:130px; display:flex; align-items:center; justify-content:center; }
+  .roll-die.tumbling{ animation:tumble .5s linear infinite; }
+  @keyframes tumble{
+    0%{transform:translateY(0) rotate(0deg);} 25%{transform:translateY(-26px) rotate(90deg);}
+    50%{transform:translateY(0) rotate(180deg);} 75%{transform:translateY(-14px) rotate(270deg);}
+    100%{transform:translateY(0) rotate(360deg);}
+  }
+  .roll-title{ font-family:'Baloo 2', sans-serif; font-weight:800; font-size:24px; color:var(--ink); margin:8px 0 0; }
+  .roll-result{ display:none; flex-direction:column; align-items:center; }
+  .roll-result.show{ display:flex; animation:reveal .5s cubic-bezier(.34,1.56,.64,1); }
+  .roll-result .icon{
+    font-size:64px; width:110px; height:110px; display:flex; align-items:center; justify-content:center;
+    background:#F1EBFC; border-radius:28px; margin-bottom:12px;
+  }
+  .roll-result .label{ font-family:'Baloo 2', sans-serif; font-weight:800; font-size:28px; color:var(--ink); line-height:1.2; }
+  .roll-result button{
+    margin-top:22px; border:none; border-radius:18px; padding:16px 34px; cursor:pointer;
+    background:var(--leaf); color:#fff; font-family:'Baloo 2', sans-serif; font-weight:800; font-size:22px;
+    box-shadow:0 5px 0 #2E9A5A;
+  }
+  .roll-result button:active{ transform:translateY(3px); box-shadow:0 2px 0 #2E9A5A; }
+  @keyframes reveal{ from{opacity:0; transform:scale(.4);} to{opacity:1; transform:scale(1);} }
   @keyframes pop{ 0%{transform:scale(1);} 35%{transform:scale(1.05) rotate(-1deg);} 60%{transform:scale(.98) rotate(1deg);} 100%{transform:scale(1);} }
 
   .empty-state{ text-align:center; padding:40px 20px; color:var(--ink-soft); font-weight:700; }
@@ -147,7 +196,7 @@
   .finale h2{ font-size:clamp(24px,5vw,34px); margin:0 0 8px; color:var(--ink); }
   .finale p{ color:var(--ink-soft); font-weight:700; font-size:16px; margin:0; }
 
-  canvas#fx{ position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:50; }
+  canvas#fx{ position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:150; }
 
   /* ---------- gear / parent access ---------- */
   .gear-btn{
@@ -318,6 +367,19 @@
 
 <button class="gear-btn" id="gearBtn" aria-label="Parent settings">⚙️</button>
 
+<!-- Roll-the-dice overlay -->
+<div class="overlay" id="rollOverlay">
+  <div class="modal modal-roll">
+    <div class="roll-die" id="rollDie">🎲</div>
+    <p class="roll-title" id="rollTitle">Rolling…</p>
+    <div class="roll-result" id="rollResult">
+      <div class="icon" id="rollIcon"></div>
+      <div class="label" id="rollLabel"></div>
+      <button type="button" id="rollDoneBtn">👍 Let's go!</button>
+    </div>
+  </div>
+</div>
+
 <!-- PIN overlay -->
 <div class="overlay" id="pinOverlay">
   <div class="modal modal-pin">
@@ -345,7 +407,7 @@
 
     <div class="jar-edit-card">
       <div class="chore-group-label jar">🎲 Weekend chore jar</div>
-      <p class="jar-help">Shared chores for everyone. Each Saturday and Sunday, every kid gets a few picked at random from the jar, on top of their own list. Set how many under each kid. Tap <b>1×</b> on a chore that only needs doing once a weekend, and it goes to just one kid on one day.</p>
+      <p class="jar-help">Shared chores for everyone. Each Saturday and Sunday, every kid gets a few picked at random from the jar, on top of their own list. Set how many under each kid. Tap <b>1×</b> on a chore that only needs doing once a weekend, and it goes to just one kid on one day. The kids don't see their jar chores until the rest of their list is done; then they roll the dice to find out what they got.</p>
       <div id="jarEditList"></div>
     </div>
 
@@ -625,7 +687,10 @@ let activeKidId = KIDS[0] ? KIDS[0].id : null;
 let done = {};
 function resetDoneState(){
   done = {};
-  KIDS.forEach(k => { done[k.id] = { weekday: new Set(), saturday: new Set(), sunday: new Set() }; });
+  KIDS.forEach(k => {
+    done[k.id] = { weekday: new Set(), saturday: new Set(), sunday: new Set(),
+                   rolled: { saturday: 0, sunday: 0 } }; // how many jar chores they've rolled for so far
+  });
 }
 resetDoneState();
 
@@ -650,6 +715,12 @@ function choresFor(kid, mode){
   return own.concat(extra);
 }
 function currentChores(kid){ return choresFor(kid, viewMode); }
+// jar chores stay hidden until rolled for, so this is what's on screen
+function jarPicksFor(kid, mode){ return (JAR[mode] && JAR[mode][kid.id]) || []; }
+function rolledCount(kid, mode){ return (done[kid.id].rolled && done[kid.id].rolled[mode]) || 0; }
+function visibleChores(kid){
+  return (kid[viewMode] || []).concat(jarPicksFor(kid, viewMode).slice(0, rolledCount(kid, viewMode)));
+}
 
 function renderDayToggle(){
   weekdayBtn.classList.toggle('active', viewMode === 'weekday');
@@ -685,11 +756,13 @@ function renderChores(justCompletedIndex){
     progressFill.style.width = '0%';
     return;
   }
-  const chores = currentChores(kid);
+  const chores = visibleChores(kid);
   const doneSet = done[kid.id][viewMode];
+  const total = currentChores(kid).length; // includes jar chores not rolled for yet
+  const unrolled = total - chores.length;
   choreList.innerHTML = '';
 
-  const allDone = chores.length > 0 && doneSet.size === chores.length;
+  const allDone = total > 0 && doneSet.size === total;
 
   if (allDone){
     choreList.style.display = 'none';
@@ -718,9 +791,27 @@ function renderChores(justCompletedIndex){
       card.addEventListener('click', (e) => toggleChore(i, e));
       choreList.appendChild(card);
     });
+
+    if (unrolled > 0){
+      if (doneSet.size === chores.length){
+        const roll = document.createElement('button');
+        roll.className = 'roll-btn';
+        roll.innerHTML = '<span class="die">🎲</span>Roll the dice!';
+        roll.addEventListener('click', startRoll);
+        choreList.appendChild(roll);
+      } else {
+        const mystery = document.createElement('div');
+        mystery.className = 'mystery-card';
+        mystery.innerHTML = `
+          <div class="icon">🎲</div>
+          <div class="label">${unrolled > 1 ? unrolled + ' mystery chores!' : 'Mystery chore!'}<small>Finish the rest to roll</small></div>
+          <div class="lock">🔒</div>
+        `;
+        choreList.appendChild(mystery);
+      }
+    }
   }
 
-  const total = chores.length;
   const count = doneSet.size;
   progressText.textContent = `${count} / ${total}`;
   progressFill.style.width = total ? `${(count/total)*100}%` : '0%';
@@ -748,12 +839,65 @@ function toggleChore(index, evt){
   playPop();
 
   const willBeAllDone = doneSet.size === currentChores(kid).length;
+  const readyToRoll = !willBeAllDone && doneSet.size === visibleChores(kid).length;
   renderAll(index);
 
   if (willBeAllDone){
     setTimeout(() => { fireworks(); playFanfare(); }, 250);
+  } else if (readyToRoll){
+    setTimeout(playRollReady, 200);
   }
 }
+
+// ---------------- roll the dice for a weekend jar chore ----------------
+// The pick itself was already made (see computeJarPicks), so every device
+// agrees and once-a-weekend chores stay once a weekend; the roll just reveals it.
+const rollOverlay = document.getElementById('rollOverlay');
+const rollDie = document.getElementById('rollDie');
+const rollTitle = document.getElementById('rollTitle');
+const rollResult = document.getElementById('rollResult');
+let rolling = null;
+
+function startRoll(){
+  const kid = activeKid();
+  if (!kid || rolling) return;
+  const n = rolledCount(kid, viewMode);
+  const chore = jarPicksFor(kid, viewMode)[n];
+  if (!chore) return;
+  rolling = { kidId: kid.id, mode: viewMode, color: kid.color };
+  document.getElementById('rollIcon').textContent = chore.icon;
+  document.getElementById('rollLabel').textContent = chore.label;
+  rollResult.classList.remove('show');
+  rollDie.style.display = '';
+  rollDie.classList.toggle('tumbling', !reduceMotion);
+  rollTitle.textContent = 'Rolling…';
+  rollOverlay.classList.add('show');
+  const rattles = reduceMotion ? 0 : 10;
+  for (let i = 0; i < rattles; i++) playTone(160 + Math.random()*160, i*0.13, 0.06, 'square', 0.05);
+  setTimeout(revealRoll, reduceMotion ? 600 : 1500);
+}
+
+function revealRoll(){
+  rollDie.classList.remove('tumbling');
+  rollDie.style.display = 'none';
+  rollTitle.textContent = 'You got…';
+  rollResult.classList.add('show');
+  const r = rollResult.getBoundingClientRect();
+  burst(r.left + r.width/2, r.top + 50, rolling ? rolling.color : PALETTE[0]);
+  playFanfare();
+}
+
+document.getElementById('rollDoneBtn').addEventListener('click', () => {
+  rollOverlay.classList.remove('show');
+  if (rolling && done[rolling.kidId]){
+    const kid = KIDS.find(k => k.id === rolling.kidId);
+    const r = done[rolling.kidId].rolled;
+    if (kid) r[rolling.mode] = Math.min(rolledCount(kid, rolling.mode) + 1, jarPicksFor(kid, rolling.mode).length);
+  }
+  rolling = null;
+  renderAll();
+  applyUpdateIfIdle();
+});
 
 renderAll();
 
@@ -841,6 +985,7 @@ function playTone(freq, start, dur, type='sine', vol=0.18){
   }catch(e){}
 }
 function playPop(){ playTone(880,0,0.12,'triangle',0.16); playTone(1320,0.05,0.12,'triangle',0.12); }
+function playRollReady(){ [392,523.25].forEach((f,i)=>playTone(f,i*0.1,0.2,'triangle',0.14)); }
 function playFanfare(){ [523.25,659.25,783.99,1046.5].forEach((f,i)=>playTone(f,i*0.12,0.35,'triangle',0.16)); }
 
 // ================= PARENT PIN + EDIT PANEL =================
@@ -1448,7 +1593,8 @@ async function checkForUpdate(){
 
 function applyUpdateIfIdle(){
   if (!updateWaiting) return;
-  const anyTicked = Object.values(done).some(d => d.weekday.size || d.saturday.size || d.sunday.size);
+  const anyTicked = Object.values(done).some(d => d.weekday.size || d.saturday.size || d.sunday.size
+    || d.rolled.saturday || d.rolled.sunday);
   if (anyTicked || document.querySelector('.overlay.show')) return;
   try{
     localStorage.setItem(UPDATE_RELOADED_KEY, updateWaiting);

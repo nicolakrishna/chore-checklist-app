@@ -1498,6 +1498,7 @@ document.getElementById('editSave').addEventListener('click', async () => {
 const SYNC_STORAGE_KEY = 'choreAppSyncV1';
 const SYNC_TIMEOUT_MS = 8000;
 const SYNC_EVERY_MS = 5 * 60 * 1000;
+const SYNC_LIVE_EVERY_MS = 20 * 1000; // while the screen is on, catch up with other devices this often
 
 function loadSync(){
   try{
@@ -1793,6 +1794,8 @@ function applyUpdateIfIdle(){
 function backgroundChecks(){ rollOverIfNewDay(); syncNow(); syncTicks(); checkForUpdate(); }
 backgroundChecks();
 setInterval(backgroundChecks, SYNC_EVERY_MS);
+// sharing only (not the update check), and only while someone can see the screen
+setInterval(() => { if (document.visibilityState === 'visible'){ syncNow(); syncTicks(); } }, SYNC_LIVE_EVERY_MS);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') backgroundChecks();
   else applyUpdateIfIdle(); // going into the background is a good moment to update

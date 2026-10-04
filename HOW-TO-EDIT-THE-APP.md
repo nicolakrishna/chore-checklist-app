@@ -42,10 +42,10 @@ on one shows up on the other. You set this up once on each device:
 
 After that, just edit and tap **Save** as usual. You'll see "shared with your
 other devices". The iPad picks the change up next time the app is opened or
-woken up, or within 5 minutes if it's already open.
+woken up, or within 20 seconds if it's already open.
 
 **Ticks are shared too.** A chore ticked on the iPad shows as ticked on your
-phone (next time it's opened or woken, or within 5 minutes), so you can check
+phone within about 20 seconds, so you can check
 how the morning's going from anywhere. Ticks still start fresh every day.
 
 If it says it **couldn't reach the sharing server**, your change is still saved

@@ -78,7 +78,7 @@ This trips people up, so read it before changing anything about chores.
   "Share with other devices" → paste the pairing code). Paired devices also
   send each save to a small sync server on Greg's Hetzner box and pick up
   each other's changes on open, on returning to the foreground, and every
-  5 minutes. The pairing is stored separately under `choreAppSyncV1`, never
+  20 seconds while the screen is on. The pairing is stored separately under `choreAppSyncV1`, never
   inside `STORAGE_KEY`'s data. Data pulled from the server goes through
   `migrateKid()` like anything else loaded. Server code is in `server/`;
   Greg's `README.md` covers running it.

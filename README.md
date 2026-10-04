@@ -225,8 +225,12 @@ H=chores.your-domain.example     # the real subdomain
 ### Day to day
 
 - Devices check for changes when the app opens, when it comes back to the
-  foreground, and every 5 minutes. A save is sent straight away; if the server
-  can't be reached it's kept on the device and retried on the next check.
+  foreground, and every 20 seconds while the screen is on (`SYNC_LIVE_EVERY_MS`;
+  never in the background). That's two small GETs per device per check, so
+  expect a couple of log lines every 20 seconds per open device. A tick or a
+  save is sent straight away (ticks after 0.8 s, so a burst of taps goes as
+  one request); if the server can't be reached it's kept on the device and
+  retried on the next check.
 - Logs: `journalctl -u chore-sync`. Requests are logged without headers, so
   the key never appears.
 - Database: `/var/lib/private/chore-sync/chores.db`. Back it up with the rest of
@@ -248,9 +252,20 @@ sqlite3 $DB "INSERT INTO history (saved_at, body) SELECT strftime('%s','now'), b
 ### Updating
 
 ```sh
+H=chores.your-domain.example     # the real subdomain; a new shell won't have it
 cd /opt/chore-checklist-app && git pull
 cp server/chore_sync.py /opt/chore-sync/ && systemctl restart chore-sync
+
+# check: both should print 401 (the key is missing, so it's refused)
+curl -s -o /dev/null -w '%{http_code}\n' "http://127.0.0.1:8787/config/ticks?day=2026-01-01"
+curl -sS -o /dev/null -w '%{http_code}\n' "https://$H/config/ticks?day=2026-01-01"
 ```
+
+- **404:** the old server is still running. Redo the `cp` and restart.
+- **`000` from the second line only:** curl never reached Apache, usually because
+  `$H` is empty. `-sS` prints the actual error.
+- **`000` from the first line:** the service isn't running. See
+  `journalctl -u chore-sync -n 30 --no-pager`.
 
 ### Changing the key
 

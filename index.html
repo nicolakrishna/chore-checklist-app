@@ -376,6 +376,17 @@
 </div>
 
 <script>
+/* Fingerprint of this page exactly as it was served, taken before anything
+   below changes it. The update check near the bottom compares it with a
+   fresh copy from the server to spot a newly published version. */
+function pageSignature(doc){
+  const text = doc.head.innerHTML + doc.body.innerHTML.trim();
+  let h = 2166136261; // FNV-1a
+  for (let i = 0; i < text.length; i++){ h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h >>> 0).toString(36) + '.' + text.length;
+}
+const BOOT_SIGNATURE = pageSignature(document);
+
 /* ============================================================
    DEFAULT CONFIG — only used the very first time the page opens
    on a device. After that, edits made through the gear button are
@@ -1399,10 +1410,56 @@ document.getElementById('unpairBtn').addEventListener('click', () => {
   renderSyncPanel('Sharing is off on this device. Its chores stay as they are.');
 });
 
-syncNow();
-setInterval(syncNow, SYNC_EVERY_MS);
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncNow(); });
-window.addEventListener('online', syncNow);
+/* ============================================================
+   APP UPDATES
+   Home-screen apps have no reload button and the host caches pages
+   for ~10 minutes, so the app checks for a newer published copy
+   itself. The page always runs from what the device already has;
+   this check happens afterwards, in the background, and any failure
+   is ignored. A new version is only loaded when it can't cost
+   anything: no chores ticked and no grown-up panel open.
+   ============================================================ */
+const UPDATE_RELOADED_KEY = 'choreAppUpdateV1'; // last version we reloaded for: never reload twice for one
+const UPDATE_TIMEOUT_MS = 10000;
+let updateWaiting = null;
+
+async function checkForUpdate(){
+  if (!/^https?:$/.test(location.protocol)) return; // opened from a file: nothing to check
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), UPDATE_TIMEOUT_MS);
+  try{
+    const res = await fetch(location.href.split('#')[0], { cache: 'no-cache', signal: ctl.signal });
+    if (!res.ok) return;
+    const fresh = new DOMParser().parseFromString(await res.text(), 'text/html');
+    if (!fresh.getElementById('choreList')) return; // not this app (e.g. a wifi login page)
+    const sig = pageSignature(fresh);
+    let reloadedFor = null;
+    try{ reloadedFor = localStorage.getItem(UPDATE_RELOADED_KEY); }catch(e){}
+    updateWaiting = (sig !== BOOT_SIGNATURE && sig !== reloadedFor) ? sig : null;
+    applyUpdateIfIdle();
+  }catch(e){
+    // offline, timed out, or the server hiccuped: try again next time
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+function applyUpdateIfIdle(){
+  if (!updateWaiting) return;
+  const anyTicked = Object.values(done).some(d => d.weekday.size || d.saturday.size || d.sunday.size);
+  if (anyTicked || document.querySelector('.overlay.show')) return;
+  try{
+    localStorage.setItem(UPDATE_RELOADED_KEY, updateWaiting);
+    if (localStorage.getItem(UPDATE_RELOADED_KEY) !== updateWaiting) return; // can't guard against a loop, so don't
+  }catch(e){ return; }
+  location.reload();
+}
+
+function backgroundChecks(){ syncNow(); checkForUpdate(); }
+backgroundChecks();
+setInterval(backgroundChecks, SYNC_EVERY_MS);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') backgroundChecks(); });
+window.addEventListener('online', backgroundChecks);
 </script>
 </body>
 </html>

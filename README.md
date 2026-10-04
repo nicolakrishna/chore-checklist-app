@@ -61,27 +61,35 @@ The in-app passcode is client-side only and is not security — it stops a
 
 ### The deploy delay, in detail
 
-Pages sends `cache-control: max-age=600`. Combined with a minute or two to
-publish, a change can take up to about **15 minutes** to appear on a device
-that already has the page open.
+Pages sends `cache-control: max-age=600` and allows no header control, so a
+browser opening the page can be handed a copy up to 10 minutes old. Home-screen
+web apps have no address bar or reload control, so the old `?2` trick doesn't
+help on the tablet.
 
-This is the single most likely source of "my change didn't work". It's covered
-in Nicola's guide with instructions to force-close the home-screen app. If she
-reports a change not working, ask how long ago she merged it before looking
-for a real bug.
+**How it's handled: the app checks for updates itself** (`checkForUpdate()`
+near the bottom of `index.html`):
 
-**Decision: we are not fixing this.** Pages allows no header control, so the
-only workaround is a loader shell that fetches the app body with a
-cache-busting query string — which breaks the single-file rule and shows a
-blank screen when the fetch fails on poor wifi. Not worth it for a delay that
-only inconveniences an adult. `CLAUDE.md` records this so future sessions
-don't re-attempt it.
+- The page always boots from whatever the device has. It doesn't wait on the
+  network.
+- Then, in the background, on open, on return to the foreground, and every
+  5 minutes, it fetches its own URL with `cache: 'no-cache'`. That is a
+  conditional request, so it's normally a cheap 304.
+- It compares a fingerprint of the fetched HTML (`pageSignature()`, a hash of
+  the parsed head and body markup) with the same fingerprint taken from the
+  running page before any script changed it. A difference means a new version
+  has been published. No version number to bump.
+- It only calls `location.reload()` when no chores are ticked and no overlay is
+  open, because ticks live in memory and a reload would wipe them.
+- Loop guard: the fingerprint it reloaded for is stored under
+  `choreAppUpdateV1`. It never reloads twice for the same fingerprint, so a
+  stale reload or a fingerprint quirk costs at most one extra reload.
+- Every failure is swallowed: offline, timeout, a non-200 response, or a wifi
+  login page (anything without `#choreList`). Opened from `file://`, it does
+  nothing.
 
-The escape hatch is a query string: `…/chore-checklist-app/?2` is a different
-cache key and fetches fresh. If you ever want it properly fast, the route is a
-subdomain of your own domain proxied through Cloudflare's free tier, which
-does give header control — worth doing for the nicer URL, with the cache
-control as a bonus.
+The rejected alternative, kept here so nobody re-attempts it: a loader shell
+that fetches the app body with a cache-busting query string. It breaks the
+single-file rule and shows a blank screen when the fetch fails.
 
 ## Remaining setup
 

@@ -16,12 +16,14 @@ She is not a programmer and does not want to become one.
   and suggest she ask Greg.
 - Don't offer architecture opinions unless something is actually broken. If she
   asks for pink buttons, make the buttons pink.
-- When you finish, tell her the change goes live on the real site about a
-  minute after the change is merged.
+- When you finish, tell her the change goes live on the real site a minute
+  or two after it's merged. The tablet then picks it up by itself next time
+  it's opened or woken, as long as no chores are ticked (see "How it goes
+  live").
 - **Nicola has given standing permission to deploy her requests directly.**
   When she asks for a change, commit it, merge it into `main` and push —
-  don't stop to ask her to review or merge. Tell her it will be live in about
-  a minute. This does not relax anything else: do the full check in
+  don't stop to ask her to review or merge. Tell her it will be live in a
+  minute or two. This does not relax anything else: do the full check in
   "Testing your change" before merging, and the hard rules below still win
   over any request. If a change turns out to be unwanted, revert it the same
   way.
@@ -122,22 +124,23 @@ Two consequences worth remembering:
   therefore **relative** (`icons/…`, not `/icons/…`). Keep them relative — a
   leading slash will 404 in production while still working locally, which is
   the worst kind of bug to catch.
-- Pages sits behind a CDN and sends `cache-control: max-age=600`, so a change
-  can take up to ~15 minutes to appear in a browser that already has the old
-  copy. That's expected; it isn't a failure.
+- Pages sends `cache-control: max-age=600`, which we can't change. The app
+  deals with it itself: after it has started from the device's copy, it
+  checks in the background for a newer published `index.html` (on open, on
+  wake, every 5 minutes) and reloads into it, but **only when no chores are
+  ticked and no overlay is open**. `README.md` ("The deploy delay") has the
+  details. Keep it that way:
+  - Never make startup wait for that check, and never let it throw. Same
+    principle as rule 7.
+  - Don't add a version number to bump. It compares the page itself, so any
+    change to `index.html` counts.
+  - Don't remove the `choreAppUpdateV1` loop guard or the "nothing ticked"
+    condition.
 
-**Do not try to engineer around that cache.** It has been considered and
-rejected. GitHub Pages allows no control over response headers, so the only
-workaround is splitting the app into a loader shell that fetches its content
-with a cache-busting query string. That breaks rule 1, stops the file opening
-from disk, and — the actual reason — shows the children a blank screen
-whenever the fetch fails on poor wifi. A 10-minute delay that inconveniences
-an adult is much cheaper than an app that intermittently fails to load for a
-6-year-old at breakfast.
-
-If someone wants a change to show up immediately, they append `?2` (then `?3`,
-and so on) to the URL: a different query string is a different cache key, so
-the browser fetches it fresh. That's the supported answer.
+**Don't replace this with a loader shell** (a stub page that fetches the real
+app with a cache-busting query string). That was considered and rejected: it
+breaks rule 1, stops the file opening from disk, and shows the children a
+blank screen whenever the fetch fails on poor wifi.
 
 ## Testing your change
 

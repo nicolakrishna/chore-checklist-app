@@ -76,8 +76,8 @@ and that's what Claude is for.
    it offers to do that.
 7. On the page that opens, click the green **Merge pull request** button, then
    **Confirm merge**.
-8. Wait a few minutes, then reload the app on the tablet. See "It won't look
-   changed straight away" below — this bit catches everyone out.
+8. Wait a couple of minutes, then open the app on the tablet. It fetches the
+   new version by itself. See "When the tablet picks up a change" below.
 
 The app lives at:
 **https://nicolakrishna.github.io/chore-checklist-app/**
@@ -89,26 +89,20 @@ The app lives at:
   change that was merged" — it can put it back.
 - **Step 7 is the point of no return.** Before you merge, nothing is live. You
   can abandon a conversation you don't like and no harm is done.
-- **It won't look changed straight away, and that's normal.** Two things add
-  up here: GitHub takes a minute or two to publish, and then the tablet may
-  keep showing its saved copy for **up to 10 more minutes**. So a change can
-  take a quarter of an hour to appear. It has almost certainly worked — wait
-  before assuming otherwise.
+- **When the tablet picks up a change.** GitHub takes a minute or two to
+  publish. After that, the app checks for a new version whenever it's opened
+  or woken up, and every 5 minutes while it's on screen. When it finds one, it
+  quietly reloads itself — the screen blinks once and the new version is
+  there.
 
-  To hurry it along: if you opened the app from the home-screen icon, close it
-  completely first (swipe up from the bottom and flick the app away), then
-  reopen it. In Safari, pull down on the page to refresh.
+  It only does this when **no chores are ticked** and the gear settings are
+  closed, so a child's progress is never wiped halfway through. If the kids
+  have already started ticking, the new version arrives the next time nothing
+  is ticked. Most often that's the next morning.
 
-- **To check straight away whether your change worked**, open this in Safari
-  and put any number on the end, changing the number each time:
-
-  `https://nicolakrishna.github.io/chore-checklist-app/?2`
-
-  then `?3`, then `?4`, and so on. The tablet treats each one as a brand new
-  page, so it always fetches the latest version instead of showing you its
-  saved copy. Handy when you've just merged something and don't want to wait.
-  The app works exactly the same either way — nothing is affected by the
-  number.
+  If it still looks old after a few minutes, check that nothing is ticked,
+  then close the app completely (swipe up from the bottom and flick it away)
+  and open it again.
 - **The kids' chore data is safe.** Code changes don't touch the chore lists
   saved on the tablet.
 - **If you ask for something impossible**, it'll tell you. It's also been told

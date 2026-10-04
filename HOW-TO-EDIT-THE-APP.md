@@ -44,6 +44,10 @@ After that, just edit and tap **Save** as usual. You'll see "shared with your
 other devices". The iPad picks the change up next time the app is opened or
 woken up, or within 5 minutes if it's already open.
 
+**Ticks are shared too.** A chore ticked on the iPad shows as ticked on your
+phone (next time it's opened or woken, or within 5 minutes), so you can check
+how the morning's going from anywhere. Ticks still start fresh every day.
+
 If it says it **couldn't reach the sharing server**, your change is still saved
 on that device and will be shared by itself once the connection is back. Nothing
 to do. The app keeps working on the iPad either way.
@@ -103,16 +107,14 @@ The app lives at:
   quietly reloads itself — the screen blinks once and the new version is
   there.
 
-  It only does this when **no chores are ticked** and the gear settings are
-  closed, so a child's progress is never wiped halfway through. If the kids
-  have already started ticking, the new version arrives the next time nothing
-  is ticked. Most often that's the next morning.
+  It waits for a quiet moment, when nobody has touched the screen for a minute
+  and the gear settings are closed, so it never blinks under a child's finger.
+  Ticks are kept, so nobody's progress is lost.
 
-  If it still looks old after a few minutes, check that nothing is ticked,
-  then close the app completely (swipe up from the bottom and flick it away)
-  and open it again.
+  If it still looks old after a few minutes, close the app completely (swipe
+  up from the bottom and flick it away) and open it again.
 - **The kids' chore data is safe.** Code changes don't touch the chore lists
-  saved on the tablet.
+  or today's ticks saved on the tablet.
 - **If you ask for something impossible**, it'll tell you. It's also been told
   not to reorganise the app behind your back, so it should stick to what you
   asked for.

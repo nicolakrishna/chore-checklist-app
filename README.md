@@ -78,8 +78,10 @@ near the bottom of `index.html`):
   the parsed head and body markup) with the same fingerprint taken from the
   running page before any script changed it. A difference means a new version
   has been published. No version number to bump.
-- It only calls `location.reload()` when no chores are ticked and no overlay is
-  open, because ticks live in memory and a reload would wipe them.
+- It only calls `location.reload()` at a quiet moment: no overlay open, and no
+  touch for 60 seconds (or the page is hidden). Ticks and the selected kid and
+  list are saved on the device, so the reload loses nothing. If a browser
+  won't save them, it falls back to waiting until nothing is ticked.
 - Loop guard: the fingerprint it reloaded for is stored under
   `choreAppUpdateV1`. It never reloads twice for the same fingerprint, so a
   stale reload or a fingerprint quirk costs at most one extra reload.
@@ -130,7 +132,7 @@ names stay off the public page.
 For the app, none. The sync server is covered in its own section below.
 
 The one thing worth knowing: **unless a device is paired with the sync server,
-it holds the only copy of its chore configuration.** It isn't in git. Once
+it holds the only copy of its chore configuration and ticks.** It isn't in git. Once
 paired, the server holds a copy too (with history), and a wiped or replacement
 iPad gets everything back by pairing again.
 
@@ -143,8 +145,16 @@ iPad  ─┘  Bearer <household key>└─► chore_sync.py on 127.0.0.1:8787 �
 ```
 
 The app itself stays on GitHub Pages. The server stores one JSON document
-(`{kids, passcode}`) and keeps the last 50 saves. It's `server/chore_sync.py`,
-Python standard library only. Last save wins, which is fine with one editor.
+(`{kids, passcode}`) and keeps the last 50 saves. Last save wins, which is fine
+with one editor. It also stores each day's ticks (`/config/ticks?day=…`, one
+row per day in the `ticks` table, kept for 400 days). Ticks merge per chore
+(the later tap wins), so kids ticking on two devices at once both count. It's
+`server/chore_sync.py`, Python standard library only.
+
+Ticks live under `/config/` on purpose: the existing `ProxyPass /config` rule
+passes `/config/ticks` through as-is, so adding them needed no Apache change.
+A server from before ticks answers 404 there, and devices keep their ticks
+locally until it's updated.
 
 **The server address and key are not in the code.** The repo and site are
 public, so each device is paired once by pasting a *pairing code*

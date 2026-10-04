@@ -19,8 +19,8 @@ programmer and does not want to become one.
   asks for pink buttons, make the buttons pink.
 - When you finish, tell her the change goes live on the real site a minute
   or two after it's merged. The tablet then picks it up by itself next time
-  it's opened or woken, as long as no chores are ticked (see "How it goes
-  live").
+  it's opened or woken, or once nobody has touched it for a minute (see "How
+  it goes live").
 - **Nicola has given standing permission to deploy her requests directly.**
   When she asks for a change, commit it, merge it into `main` and push —
   don't stop to ask her to review or merge. Tell her it will be live in a
@@ -89,8 +89,32 @@ This trips people up, so read it before changing anything about chores.
 - A code change *is* right when she wants new behaviour or a new look:
   different colours, layout, animations, a new kind of reward, sounds, etc.
 
-Ticked-off chores are kept in memory only and reset when the page reloads.
-That is intentional — it's a fresh list each day.
+### Ticks
+
+Ticked-off chores are saved too, separately from the configuration:
+
+- On the device under `choreAppTicksV1` the moment a chore is tapped, so a
+  reload (or an auto-update) never loses them. Never put ticks inside
+  `STORAGE_KEY`'s data.
+- Ticks belong to one calendar day (the device's local date). A new day
+  starts a fresh list, even if the app stayed open overnight
+  (`rollOverIfNewDay()`). That's intentional.
+- A tick is filed under the chore's **name** (lower-cased; repeats in one list
+  get `#2`, `#3`), not its position, so reordering or editing a list keeps
+  ticks on the right chore. Renaming a chore drops its tick for the day,
+  which is fine. Kids and chores have no IDs, and don't need any for this.
+- Rolling the dice for a weekend jar chore is stored among the ticks too, as
+  `"🎲 <chore name>"`, so a revealed jar chore stays revealed after a reload
+  and on other devices. Any new per-day state should follow the same
+  pattern rather than living in memory.
+- On paired devices ticks are also shared, at `<server>/config/ticks?day=…`.
+  Each tick carries the time it was made, and per chore the later tap wins,
+  so two devices ticking at once both count. Same rules as everything else
+  shared: never wait for it, ignore every failure. A server that predates
+  ticks answers 404, and ticks then stay on the device.
+- Which kid and list a device is showing is saved too (on that device only,
+  for the same day), so an update reload puts the child back where they
+  were.
 
 ## Files
 
@@ -120,7 +144,9 @@ Two consequences worth remembering:
   go live on merge. A change to `server/` needs Greg to run the "Updating"
   steps in `README.md`, so tell whoever asked. Keep the app compatible with
   the server version that's already running (`GET`/`PUT /config`, body
-  `{"config": {kids, passcode}}`).
+  `{"config": {kids, passcode}}`; `GET`/`PUT /config/ticks?day=YYYY-MM-DD`,
+  body `{"day", "ticks"}`). New endpoints go under `/config/`, because
+  Apache only passes `/config…` through to the server.
 - **The site is served from a subpath** (`/chore-checklist-app/`), not a domain
   root. All asset paths in `index.html` and `manifest.webmanifest` are
   therefore **relative** (`icons/…`, not `/icons/…`). Keep them relative — a
@@ -129,15 +155,17 @@ Two consequences worth remembering:
 - Pages sends `cache-control: max-age=600`, which we can't change. The app
   deals with it itself: after it has started from the device's copy, it
   checks in the background for a newer published `index.html` (on open, on
-  wake, every 5 minutes) and reloads into it, but **only when no chores are
-  ticked and no overlay is open**. `README.md` ("The deploy delay") has the
-  details. Keep it that way:
+  wake, every 5 minutes) and reloads into it, but **only at a quiet moment**:
+  no overlay open, and nobody has touched the screen for a minute (or the app
+  is in the background). Ticks are saved, so a reload loses nothing.
+  `README.md` ("The deploy delay") has the details. Keep it that way:
   - Never make startup wait for that check, and never let it throw. Same
     principle as rule 7.
   - Don't add a version number to bump. It compares the page itself, so any
     change to `index.html` counts.
-  - Don't remove the `choreAppUpdateV1` loop guard or the "nothing ticked"
-    condition.
+  - Don't remove the `choreAppUpdateV1` loop guard, the quiet-moment check,
+    or the fallback that waits for "nothing ticked" when a browser can't save
+    ticks.
 
 **Don't replace this with a loader shell** (a stub page that fetches the real
 app with a cache-busting query string). That was considered and rejected: it
@@ -151,7 +179,7 @@ There is no test suite and doesn't need to be one. Before you finish:
 - Open `index.html` in a browser and click through it as a child would:
   pick each kid, tick chores, hit the reward state, switch weekday/weekend,
   open the gear settings with passcode `1234`, add and delete a chore, reload
-  the page and confirm the settings survived.
+  the page and confirm the settings and today's ticks survived.
 - Check it at tablet width (about 820px) and phone width (about 390px). The
   tablet is the primary device.
 - Watch for JavaScript errors in the console. A thrown error here shows the

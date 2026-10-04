@@ -6,8 +6,9 @@ low-tech.
 
 ## Who you're working with
 
-Nicola is usually the person asking for changes, via Claude Code on the web.
-She is not a programmer and does not want to become one.
+Nicola is usually the person asking for changes, from the **Code** tab of the
+Claude iOS app (a Claude Code cloud session on this repo). She is not a
+programmer and does not want to become one.
 
 - Explain what you changed in plain English. "The stars are bigger now" — not
   "refactored the reward component's transform origin".
@@ -26,7 +27,8 @@ She is not a programmer and does not want to become one.
   minute or two. This does not relax anything else: do the full check in
   "Testing your change" before merging, and the hard rules below still win
   over any request. If a change turns out to be unwanted, revert it the same
-  way.
+  way. If she says "don't publish yet" (her guide tells her she can), make
+  the change but hold off merging until she says go.
 
 ## The hard rules
 

@@ -59,24 +59,28 @@ Things like: bigger buttons, different colours, a new celebration animation,
 a sound when you tick something off, a different layout. That's a code change,
 and that's what Claude is for.
 
+### Where to ask: the **Code** tab, not a normal chat
+
+This is the one thing to get right. A normal Claude chat can't change the app,
+even inside the chore project: it can't see the app's files and can't publish
+anything. Only the **Code** tab can.
+
 ### The steps
 
-1. Go to **claude.ai/code** and sign in as normal.
-2. Pick the **chore-checklist-app** repository from the list.
+1. Open the **Claude** app on your phone and tap **Code**.
+2. Under the message box, pick the **chore-checklist-app** repository. Check
+   that the branch it shows is **main**.
 3. Type what you want, in plain English. Some examples that work well:
    - "When a kid finishes all their chores, make the stars rain down for longer."
    - "The weekday/weekend toggle is too small for Leo to hit. Make it bigger."
    - "Add a gentle pop sound when a chore is ticked off."
    - "The whole thing is too pink. Make it more of a forest green theme."
-4. Wait while it works. It'll show you what it changed. You don't have to read
-   the code — read the summary it writes at the end.
+4. Wait while it works. It checks its own work, then **publishes the change by
+   itself**. You don't need to merge anything or press any GitHub buttons. It
+   finishes with a short plain-English summary of what changed.
 5. If it's not right, just say so in the same conversation: "no, too dark",
-   "put it back how it was". Keep going until you're happy.
-6. When you're happy, tell it to **create a pull request**, or click the button
-   it offers to do that.
-7. On the page that opens, click the green **Merge pull request** button, then
-   **Confirm merge**.
-8. Wait a couple of minutes, then open the app on the tablet. It fetches the
+   "put it back how it was". It fixes it and publishes again.
+6. Wait a couple of minutes, then open the app on the tablet. It fetches the
    new version by itself. See "When the tablet picks up a change" below.
 
 The app lives at:
@@ -84,11 +88,15 @@ The app lives at:
 
 ### Useful things to know
 
+- **Changes go live as soon as Claude finishes.** If you'd rather talk an idea
+  through first, start with "don't publish anything yet". It will wait until
+  you say go.
 - **Nothing you do here can break it permanently.** Every version is saved. If
-  a change turns out badly, start a new conversation and say "undo the last
-  change that was merged" — it can put it back.
-- **Step 7 is the point of no return.** Before you merge, nothing is live. You
-  can abandon a conversation you don't like and no harm is done.
+  a change turns out badly, open the Code tab and say "undo the last change".
+  It puts it back and publishes that too.
+- **If Claude seems confused about which app you mean**, or says it can't see
+  any files, you're probably in a normal chat. Start again from the **Code**
+  tab.
 - **When the tablet picks up a change.** GitHub takes a minute or two to
   publish. After that, the app checks for a new version whenever it's opened
   or woken up, and every 5 minutes while it's on screen. When it finds one, it
@@ -111,8 +119,9 @@ The app lives at:
 
 ### If something looks broken
 
-Reload first — that fixes most things. If the app shows a blank screen, start
-a conversation at claude.ai/code and say "the app is showing a blank screen,
-please undo the last change and fix it". Then merge that like normal.
+Close the app completely and open it again (swipe up from the bottom and flick
+it away). That fixes most things. If it shows a blank screen, open the **Code**
+tab, pick **chore-checklist-app**, and say "the app is showing a blank screen,
+please undo the last change and fix it". It publishes the fix by itself.
 
 If that doesn't work, ask Greg. Nothing is lost.

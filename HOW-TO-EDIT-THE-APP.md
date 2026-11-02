@@ -27,6 +27,13 @@ Tap **1×** next to a jar chore that only needs doing once a weekend (like
 watering plants). It then goes to just one kid, on just one day, each
 weekend. Tap it again to turn that off.
 
+**Starting the chores over.** If the kids have ticked everything (or rolled
+the dice) without actually doing it, open the gear: the box at the top,
+**↺ Start today's chores over**, has a button for each kid and one for
+everyone. Tap it, then tap again to confirm. Their ticks for today are
+cleared and the dice chores are hidden again, ready to be rolled for. It
+happens straight away (no need to press Save) and reaches shared devices too.
+
 ### Making changes from your phone
 
 Once your phone and the kids' iPad are both **connected**, a change you save

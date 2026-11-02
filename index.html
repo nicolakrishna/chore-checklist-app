@@ -306,6 +306,19 @@
   }
   .remove-kid-btn{ background:none; border:none; color:var(--coral); font-weight:800; font-size:13px; cursor:pointer; margin-top:10px; }
 
+  /* parent "start today's chores over" buttons */
+  .reset-card{ border:2px solid #FFE1C2; background:#FFF8F0; border-radius:18px; padding:14px 16px; margin:0 0 18px; }
+  .reset-card .chore-group-label{ margin-top:0; color:#B5651D; }
+  .reset-card p{ color:var(--ink-soft); font-weight:700; font-size:13px; margin:0 0 10px; line-height:1.4; }
+  .reset-btns{ display:flex; flex-wrap:wrap; gap:8px; }
+  .reset-btn{
+    border:none; background:#fff; color:var(--ink); padding:10px 14px; border-radius:12px; min-height:44px;
+    font-family:'Baloo 2', sans-serif; font-weight:700; font-size:15px; cursor:pointer;
+    box-shadow:0 2px 0 rgba(27,42,74,.08);
+  }
+  .reset-btn.confirm{ background:var(--coral); color:#fff; }
+  .reset-done{ color:#1E7A46; font-weight:800; font-size:13px; margin-top:8px; min-height:1em; }
+
   .save-status{ margin-top:16px; padding:11px 14px; border-radius:12px; font-weight:700; font-size:13px; line-height:1.45; }
   .save-status.hidden{ display:none; }
   .save-status.success{ background:#E6F9EE; color:#1E7A46; }
@@ -402,6 +415,12 @@
   <div class="modal modal-edit">
     <h3 class="display">Edit chores</h3>
     <p class="sub">Set different chores for weekdays, Saturdays, and Sundays</p>
+    <div class="reset-card">
+      <div class="chore-group-label">↺ Start today's chores over</div>
+      <p>Unticks everything for today, and hides the dice chores again so they have to be rolled for. Tap a button, then tap again to confirm. This happens straight away; you don't need to press Save.</p>
+      <div class="reset-btns" id="resetBtns"></div>
+      <div class="reset-done" id="resetDone"></div>
+    </div>
     <div id="kidEditList"></div>
     <button class="add-kid-btn" id="addKidBtn">+ Add a kid</button>
 
@@ -774,6 +793,27 @@ function setTick(kidId, mode, key, isDone){
   const prev = forMode[key];
   // always later than what it replaces, even if this device's clock is behind
   forMode[key] = { done: isDone, at: Math.max(Date.now(), prev ? prev.at + 1 : 0) };
+  TICKS.dirty = true;
+  tickEdits++;
+  ticksSaved = saveTicks();
+  scheduleTickPush();
+}
+// Parent reset: untick everything a kid has today, dice reveals included.
+// Each tick is set to "not done" rather than deleted, so it's newer than the
+// tick on other devices and the reset is shared instead of undone.
+function resetKidTicks(kidId){
+  const forKid = TICKS.ticks[kidId];
+  if (!forKid) return;
+  let changed = false;
+  TICK_MODES.forEach(mode => {
+    const forMode = forKid[mode] || {};
+    Object.keys(forMode).forEach(key => {
+      if (!forMode[key].done) return;
+      forMode[key] = { done: false, at: Math.max(Date.now(), forMode[key].at + 1) };
+      changed = true;
+    });
+  });
+  if (!changed) return;
   TICKS.dirty = true;
   tickEdits++;
   ticksSaved = saveTicks();
@@ -1172,7 +1212,45 @@ function openEditPanel(){
   hideSaveStatus();
   renderEditPanel();
   renderSyncPanel();
+  renderResetButtons();
   editOverlay.classList.add('show');
+}
+
+// one button per kid, plus "Everyone"; each needs a second tap to go ahead
+const resetBtns = document.getElementById('resetBtns');
+const resetDone = document.getElementById('resetDone');
+let resetConfirmTimer = null;
+function renderResetButtons(){
+  clearTimeout(resetConfirmTimer);
+  resetBtns.innerHTML = '';
+  resetDone.textContent = '';
+  const targets = KIDS.map(k => ({ ids: [k.id], label: `${k.emoji} ${k.name}`, doneText: `${k.name}'s chores are back to the start.` }));
+  if (KIDS.length > 1) targets.push({ ids: KIDS.map(k => k.id), label: '👨‍👩‍👧 Everyone', doneText: "Everyone's chores are back to the start." });
+  targets.forEach(t => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'reset-btn';
+    btn.textContent = '↺ ' + t.label;
+    btn.addEventListener('click', () => {
+      if (!btn.classList.contains('confirm')){
+        resetBtns.querySelectorAll('.reset-btn.confirm').forEach(b => { b.classList.remove('confirm'); b.textContent = b.dataset.label; });
+        btn.dataset.label = btn.textContent;
+        btn.classList.add('confirm');
+        btn.textContent = 'Tap again to reset';
+        resetDone.textContent = '';
+        clearTimeout(resetConfirmTimer);
+        resetConfirmTimer = setTimeout(() => { btn.classList.remove('confirm'); btn.textContent = btn.dataset.label; }, 4000);
+        return;
+      }
+      clearTimeout(resetConfirmTimer);
+      btn.classList.remove('confirm');
+      btn.textContent = btn.dataset.label;
+      t.ids.forEach(resetKidTicks);
+      renderAll();
+      resetDone.textContent = '✓ ' + t.doneText;
+    });
+    resetBtns.appendChild(btn);
+  });
 }
 
 function escapeAttr(s){

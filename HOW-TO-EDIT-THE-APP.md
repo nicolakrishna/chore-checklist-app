@@ -27,6 +27,12 @@ Tap **1×** next to a jar chore that only needs doing once a weekend (like
 watering plants). It then goes to just one kid, on just one day, each
 weekend. Tap it again to turn that off.
 
+**Weekday chores that take turns.** In a kid's weekday list, tap **🔁** on
+two (or more) chores that should share a day, like reading and writing. Only
+one of them shows each weekday, swapping day by day: Monday one, Tuesday the
+other, and so on, carrying on from Friday into the next Monday so they even
+out. Tap 🔁 again to turn it off. Remember to press Save.
+
 **Starting the chores over.** If the kids have ticked everything (or rolled
 the dice) without actually doing it, open the gear: the box at the top,
 **↺ Start today's chores over**, has a button for each kid and one for

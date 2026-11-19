@@ -278,6 +278,7 @@
     border:none; background:#EEF3FB; color:var(--ink-soft); height:34px; padding:0 9px; border-radius:10px;
     font-family:'Baloo 2', sans-serif; font-size:13px; font-weight:800; cursor:pointer; flex-shrink:0; white-space:nowrap;
   }
+  .group-hint{ color:var(--ink-soft); font-weight:700; font-size:12px; margin:-2px 0 8px; line-height:1.4; }
   .once-btn.on{ background:var(--grape); color:#fff; }
   .jar-count .num{ min-width:22px; text-align:center; font-family:'Baloo 2', sans-serif; font-size:20px; }
   .chore-rows{ display:flex; flex-direction:column; gap:8px; }
@@ -555,6 +556,14 @@ function migrateKid(kid){
   // older saved kids don't have it yet)
   if (typeof kid.weekendExtras !== 'number' || !isFinite(kid.weekendExtras)) kid.weekendExtras = DEFAULT_WEEKEND_EXTRAS;
   kid.weekendExtras = Math.max(0, Math.min(10, Math.round(kid.weekendExtras)));
+  // "take turns" weekday chores (added later): only true counts; older chores
+  // simply don't have it
+  ['weekday', 'saturday', 'sunday'].forEach(m => {
+    kid[m] = kid[m].filter(c => c && typeof c === 'object').map(c => {
+      if (c.takeTurns !== true) delete c.takeTurns;
+      return c;
+    });
+  });
   delete kid.chores;
   delete kid.weekend;
   return kid;
@@ -857,8 +866,24 @@ function rollOverIfNewDay(){
 
 function activeKid(){ return KIDS.find(k => k.id === activeKidId) || KIDS[0]; }
 // a kid's list for a day: their own chores, then (on weekends) their jar picks
+// Weekday chores marked "take turns" share one slot: each weekday shows just
+// one of them, moving on to the next every weekday (Friday's carries on to
+// Monday, so over a fortnight they even out). Worked out from the date, so it
+// matches on every device and survives a reload.
+function weekdayNumber(){
+  const d = new Date();
+  const days = Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(1970, 0, 5)) / 86400000);
+  const weeks = Math.floor(days / 7);
+  return weeks * 5 + Math.min(days - weeks * 7, 5); // Sat/Sun count as the coming Monday
+}
+function withTurnsTaken(list){
+  const turns = list.filter(c => c.takeTurns);
+  if (turns.length < 2) return list;
+  const chosen = turns[weekdayNumber() % turns.length];
+  return list.filter(c => !c.takeTurns || c === chosen);
+}
 function choresFor(kid, mode){
-  const own = kid[mode] || [];
+  const own = mode === 'weekday' ? withTurnsTaken(kid[mode] || []) : (kid[mode] || []);
   const extra = (JAR[mode] && JAR[mode][kid.id]) || [];
   return own.concat(extra);
 }
@@ -1259,12 +1284,22 @@ function escapeAttr(s){
 
 // Draws one editable list of chores. "list" says where the chores live:
 // get() returns the array, set(arr) replaces it (used after a drag).
-function renderChoreGroup(container, list, title, groupClass, addText, withOnceToggle){
+// "toggle" optionally adds an on/off button to each row: { field, text, aria }.
+const ONCE_TOGGLE = { field: 'oncePerWeekend', text: '1×', aria: 'Only once per weekend' };
+const TURNS_TOGGLE = { field: 'takeTurns', text: '🔁', aria: 'Takes turns with other 🔁 chores' };
+function renderChoreGroup(container, list, title, groupClass, addText, toggle, hint){
   if (title){
     const label = document.createElement('div');
     label.className = 'chore-group-label' + (groupClass ? ' '+groupClass : '');
     label.textContent = title;
     container.appendChild(label);
+  }
+
+  if (hint){
+    const p = document.createElement('p');
+    p.className = 'group-hint';
+    p.innerHTML = hint;
+    container.appendChild(p);
   }
 
   const rowsContainer = document.createElement('div');
@@ -1280,13 +1315,13 @@ function renderChoreGroup(container, list, title, groupClass, addText, withOnceT
       <span class="drag-handle">⠿</span>
       <input type="text" class="icon-input" maxlength="4" value="${escapeAttr(chore.icon)}" data-cf="icon">
       <input type="text" class="label-input" value="${escapeAttr(chore.label)}" data-cf="label">
-      ${withOnceToggle ? `<button type="button" class="once-btn${chore.oncePerWeekend ? ' on' : ''}" aria-pressed="${chore.oncePerWeekend ? 'true' : 'false'}" aria-label="Only once per weekend">1×</button>` : ''}
+      ${toggle ? `<button type="button" class="once-btn${chore[toggle.field] ? ' on' : ''}" aria-pressed="${chore[toggle.field] ? 'true' : 'false'}" aria-label="${toggle.aria}">${toggle.text}</button>` : ''}
       <button type="button" class="icon-btn" aria-label="Remove chore">✕</button>
     `;
-    if (withOnceToggle){
+    if (toggle){
       row.querySelector('.once-btn').addEventListener('click', () => {
         const c = list.get()[ci];
-        if (c.oncePerWeekend) delete c.oncePerWeekend; else c.oncePerWeekend = true;
+        if (c[toggle.field]) delete c[toggle.field]; else c[toggle.field] = true;
         renderEditPanel();
       });
     }
@@ -1409,7 +1444,8 @@ function renderEditPanel(){
 
     // Weekday chores
     const weekdayWrap = document.createElement('div');
-    renderChoreGroup(weekdayWrap, kidList(ki, 'weekday'), '🏫 Weekday chores', '', '+ Add Weekday chore');
+    renderChoreGroup(weekdayWrap, kidList(ki, 'weekday'), '🏫 Weekday chores', '', '+ Add Weekday chore', TURNS_TOGGLE,
+      'Tap <b>🔁</b> on chores that should take turns: only one of them shows each weekday, swapping day by day.');
     card.appendChild(weekdayWrap);
 
     // Saturday chores
@@ -1481,7 +1517,7 @@ function renderEditPanel(){
 
   // the shared weekend jar
   jarEditList.innerHTML = '';
-  renderChoreGroup(jarEditList, jarList, '', '', '+ Add a jar chore', true);
+  renderChoreGroup(jarEditList, jarList, '', '', '+ Add a jar chore', ONCE_TOGGLE);
 }
 
 addKidBtn.addEventListener('click', () => {
@@ -1505,7 +1541,11 @@ document.getElementById('editCancel').addEventListener('click', () => {
 
 document.getElementById('editSave').addEventListener('click', async () => {
   const cleanGroup = arr => arr
-    .map(c => ({ icon: (c.icon||'').trim() || '⭐', label: (c.label||'').trim() }))
+    .map(c => {
+      const chore = { icon: (c.icon||'').trim() || '⭐', label: (c.label||'').trim() };
+      if (c.takeTurns === true) chore.takeTurns = true;
+      return chore;
+    })
     .filter(c => c.label.length > 0);
 
   const cleaned = draft.map(k => ({

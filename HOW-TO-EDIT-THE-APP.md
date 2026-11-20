@@ -31,7 +31,12 @@ weekend. Tap it again to turn that off.
 two (or more) chores that should share a day, like reading and writing. Only
 one of them shows each weekday, swapping day by day: Monday one, Tuesday the
 other, and so on, carrying on from Friday into the next Monday so they even
-out. Tap 🔁 again to turn it off. Remember to press Save.
+out. Remember to press Save.
+
+**Weekday chores every second day.** Tap that same button a second time and
+it changes to **½**. That chore then shows every second weekday (like a
+shower): it skips the weekend and carries on into the next week, so
+Thursday, then Monday, then Wednesday, and so on. A third tap turns it off.
 
 **Starting the chores over.** If the kids have ticked everything (or rolled
 the dice) without actually doing it, open the gear: the box at the top,

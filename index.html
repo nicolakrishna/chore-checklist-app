@@ -275,7 +275,7 @@
     font-size:20px; font-weight:800; cursor:pointer; box-shadow:0 2px 0 rgba(27,42,74,.08);
   }
   .once-btn{
-    border:none; background:#EEF3FB; color:var(--ink-soft); height:34px; padding:0 9px; border-radius:10px;
+    border:none; background:#EEF3FB; color:var(--ink-soft); height:34px; padding:0 9px; min-width:34px; border-radius:10px;
     font-family:'Baloo 2', sans-serif; font-size:13px; font-weight:800; cursor:pointer; flex-shrink:0; white-space:nowrap;
   }
   .group-hint{ color:var(--ink-soft); font-weight:700; font-size:12px; margin:-2px 0 8px; line-height:1.4; }
@@ -561,6 +561,7 @@ function migrateKid(kid){
   ['weekday', 'saturday', 'sunday'].forEach(m => {
     kid[m] = kid[m].filter(c => c && typeof c === 'object').map(c => {
       if (c.takeTurns !== true) delete c.takeTurns;
+      if (c.everyOtherDay !== true || c.takeTurns) delete c.everyOtherDay; // "every second weekday" (added later)
       return c;
     });
   });
@@ -876,11 +877,13 @@ function weekdayNumber(){
   const weeks = Math.floor(days / 7);
   return weeks * 5 + Math.min(days - weeks * 7, 5); // Sat/Sun count as the coming Monday
 }
+// "Every second weekday" chores show on even-numbered weekdays only, so the
+// pattern skips the weekend and carries on into the next week.
 function withTurnsTaken(list){
+  const day = weekdayNumber();
   const turns = list.filter(c => c.takeTurns);
-  if (turns.length < 2) return list;
-  const chosen = turns[weekdayNumber() % turns.length];
-  return list.filter(c => !c.takeTurns || c === chosen);
+  const chosen = turns.length >= 2 ? turns[day % turns.length] : null;
+  return list.filter(c => (!chosen || !c.takeTurns || c === chosen) && !(c.everyOtherDay && day % 2));
 }
 function choresFor(kid, mode){
   const own = mode === 'weekday' ? withTurnsTaken(kid[mode] || []) : (kid[mode] || []);
@@ -1284,9 +1287,14 @@ function escapeAttr(s){
 
 // Draws one editable list of chores. "list" says where the chores live:
 // get() returns the array, set(arr) replaces it (used after a drag).
-// "toggle" optionally adds an on/off button to each row: { field, text, aria }.
-const ONCE_TOGGLE = { field: 'oncePerWeekend', text: '1×', aria: 'Only once per weekend' };
-const TURNS_TOGGLE = { field: 'takeTurns', text: '🔁', aria: 'Takes turns with other 🔁 chores' };
+// "toggle" optionally adds a button to each row that steps through its
+// options and back to off: { options: [{ field, text, aria }] }.
+const ONCE_TOGGLE = { options: [{ field: 'oncePerWeekend', text: '1×', aria: 'Only once per weekend' }] };
+const WEEKDAY_TOGGLE = { options: [
+  { field: 'takeTurns', text: '🔁', aria: 'Takes turns with other 🔁 chores' },
+  { field: 'everyOtherDay', text: '½', aria: 'Every second weekday' },
+] };
+function toggleState(toggle, chore){ return toggle.options.findIndex(o => chore[o.field]); }
 function renderChoreGroup(container, list, title, groupClass, addText, toggle, hint){
   if (title){
     const label = document.createElement('div');
@@ -1315,13 +1323,18 @@ function renderChoreGroup(container, list, title, groupClass, addText, toggle, h
       <span class="drag-handle">⠿</span>
       <input type="text" class="icon-input" maxlength="4" value="${escapeAttr(chore.icon)}" data-cf="icon">
       <input type="text" class="label-input" value="${escapeAttr(chore.label)}" data-cf="label">
-      ${toggle ? `<button type="button" class="once-btn${chore[toggle.field] ? ' on' : ''}" aria-pressed="${chore[toggle.field] ? 'true' : 'false'}" aria-label="${toggle.aria}">${toggle.text}</button>` : ''}
+      ${toggle ? (() => {
+        const on = toggleState(toggle, chore), opt = toggle.options[Math.max(on, 0)];
+        return `<button type="button" class="once-btn${on >= 0 ? ' on' : ''}" aria-pressed="${on >= 0}" aria-label="${opt.aria}">${opt.text}</button>`;
+      })() : ''}
       <button type="button" class="icon-btn" aria-label="Remove chore">✕</button>
     `;
     if (toggle){
       row.querySelector('.once-btn').addEventListener('click', () => {
         const c = list.get()[ci];
-        if (c[toggle.field]) delete c[toggle.field]; else c[toggle.field] = true;
+        const next = toggleState(toggle, c) + 1; // the last option steps back to off
+        toggle.options.forEach(o => { delete c[o.field]; });
+        if (next < toggle.options.length) c[toggle.options[next].field] = true;
         renderEditPanel();
       });
     }
@@ -1444,8 +1457,8 @@ function renderEditPanel(){
 
     // Weekday chores
     const weekdayWrap = document.createElement('div');
-    renderChoreGroup(weekdayWrap, kidList(ki, 'weekday'), '🏫 Weekday chores', '', '+ Add Weekday chore', TURNS_TOGGLE,
-      'Tap <b>🔁</b> on chores that should take turns: only one of them shows each weekday, swapping day by day.');
+    renderChoreGroup(weekdayWrap, kidList(ki, 'weekday'), '🏫 Weekday chores', '', '+ Add Weekday chore', WEEKDAY_TOGGLE,
+      'The button by each chore changes how often it shows. Tap once for <b>🔁</b>: chores marked 🔁 take turns, one of them each weekday. Tap again for <b>½</b>: every second weekday. Tap again to turn it off.');
     card.appendChild(weekdayWrap);
 
     // Saturday chores
@@ -1544,6 +1557,7 @@ document.getElementById('editSave').addEventListener('click', async () => {
     .map(c => {
       const chore = { icon: (c.icon||'').trim() || '⭐', label: (c.label||'').trim() };
       if (c.takeTurns === true) chore.takeTurns = true;
+      else if (c.everyOtherDay === true) chore.everyOtherDay = true;
       return chore;
     })
     .filter(c => c.label.length > 0);
